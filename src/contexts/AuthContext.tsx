@@ -27,6 +27,8 @@ interface AuthContextType {
   profile: Profile | null;
   subscription: Subscription | null;
   hasActiveSubscription: boolean;
+  isTrialActive: boolean;
+  trialDaysRemaining: number;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, restaurantName: string, ownerName: string) => Promise<{ error: Error | null }>;
@@ -43,6 +45,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+  const [isTrialActive, setIsTrialActive] = useState(false);
+  const [trialDaysRemaining, setTrialDaysRemaining] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
@@ -66,9 +70,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (response.data?.success) {
         setHasActiveSubscription(response.data.hasActiveSubscription);
         setSubscription(response.data.subscription || null);
+        setIsTrialActive(response.data.isTrialActive || false);
+        setTrialDaysRemaining(response.data.trialDaysRemaining || 0);
       }
     } catch (error) {
       console.error('Error fetching subscription:', error);
+    }
+  };
+
+  const createTrialSubscription = async (userId: string) => {
+    try {
+      const response = await supabase.functions.invoke('razorpay', {
+        body: { action: 'create-trial', data: { userId } }
+      });
+      
+      if (response.data?.success) {
+        console.log('Trial subscription created:', response.data);
+        await fetchSubscription(userId);
+      }
+    } catch (error) {
+      console.error('Error creating trial subscription:', error);
     }
   };
 
@@ -131,7 +152,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signUp = async (email: string, password: string, restaurantName: string, ownerName: string) => {
     const redirectUrl = `${window.location.origin}/`;
     
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -142,6 +163,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         },
       },
     });
+
+    // If signup successful, create trial subscription
+    if (!error && data.user) {
+      await createTrialSubscription(data.user.id);
+    }
+
     return { error: error as Error | null };
   };
 
@@ -150,6 +177,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setProfile(null);
     setSubscription(null);
     setHasActiveSubscription(false);
+    setIsTrialActive(false);
+    setTrialDaysRemaining(0);
   };
 
   return (
@@ -159,6 +188,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       profile,
       subscription,
       hasActiveSubscription,
+      isTrialActive,
+      trialDaysRemaining,
       isLoading,
       signIn,
       signUp,

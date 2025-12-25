@@ -22,6 +22,58 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    if (action === 'create-trial') {
+      const { userId } = data;
+      
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+
+      // Check if user already has any subscription
+      const { data: existingSub } = await supabase
+        .from('subscriptions')
+        .select('*')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (existingSub) {
+        return new Response(JSON.stringify({ 
+          success: true, 
+          message: 'User already has subscription', 
+          subscription: existingSub 
+        }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Create 7-day trial
+      const trialEndDate = new Date();
+      trialEndDate.setDate(trialEndDate.getDate() + 7);
+
+      const { data: newSub, error: subError } = await supabase
+        .from('subscriptions')
+        .insert({
+          user_id: userId,
+          plan_name: 'trial',
+          status: 'active',
+          amount: 0,
+          currency: 'INR',
+          valid_until: trialEndDate.toISOString(),
+        })
+        .select()
+        .single();
+
+      if (subError) {
+        console.error('Error creating trial:', subError);
+        throw subError;
+      }
+
+      console.log('Trial subscription created:', newSub);
+      return new Response(JSON.stringify({ success: true, subscription: newSub }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     if (action === 'create-order') {
       const { amount, currency, userId, planName } = data;
       
@@ -49,20 +101,35 @@ serve(async (req) => {
       const order = await orderResponse.json();
       console.log('Razorpay order created:', order);
 
-      // Store pending subscription
-      const { error: subError } = await supabase
+      // Update existing subscription or insert new one
+      const { data: existingSub } = await supabase
         .from('subscriptions')
-        .insert({
-          user_id: userId,
-          plan_name: planName,
-          razorpay_order_id: order.id,
-          status: 'pending',
-          amount: amount,
-          currency: currency || 'INR',
-        });
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
 
-      if (subError) {
-        console.error('Error creating subscription record:', subError);
+      if (existingSub) {
+        await supabase
+          .from('subscriptions')
+          .update({
+            plan_name: planName,
+            razorpay_order_id: order.id,
+            status: 'pending',
+            amount: amount,
+            currency: currency || 'INR',
+          })
+          .eq('user_id', userId);
+      } else {
+        await supabase
+          .from('subscriptions')
+          .insert({
+            user_id: userId,
+            plan_name: planName,
+            razorpay_order_id: order.id,
+            status: 'pending',
+            amount: amount,
+            currency: currency || 'INR',
+          });
       }
 
       return new Response(JSON.stringify({ 
@@ -100,9 +167,9 @@ serve(async (req) => {
       console.log('Received signature:', razorpay_signature);
 
       if (generatedSignature === razorpay_signature) {
-        // Update subscription status
+        // Update subscription status - 1 year for paid plans
         const validUntil = new Date();
-        validUntil.setMonth(validUntil.getMonth() + 1); // 1 month subscription
+        validUntil.setFullYear(validUntil.getFullYear() + 1);
 
         const { error: updateError } = await supabase
           .from('subscriptions')
@@ -141,7 +208,6 @@ serve(async (req) => {
         .select('*')
         .eq('user_id', userId)
         .eq('status', 'active')
-        .gte('valid_until', new Date().toISOString())
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -150,10 +216,24 @@ serve(async (req) => {
         console.error('Error checking subscription:', error);
       }
 
+      let hasActiveSubscription = false;
+      let isTrialActive = false;
+      let trialDaysRemaining = 0;
+
+      if (subscription && subscription.valid_until) {
+        hasActiveSubscription = new Date(subscription.valid_until) > new Date();
+        isTrialActive = subscription.plan_name === 'trial' && hasActiveSubscription;
+        if (isTrialActive) {
+          trialDaysRemaining = Math.max(0, Math.ceil((new Date(subscription.valid_until).getTime() - Date.now()) / (1000 * 60 * 60 * 24)));
+        }
+      }
+
       return new Response(JSON.stringify({ 
         success: true, 
-        hasActiveSubscription: !!subscription,
-        subscription 
+        hasActiveSubscription,
+        subscription,
+        isTrialActive,
+        trialDaysRemaining
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

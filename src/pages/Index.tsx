@@ -7,11 +7,15 @@ import { SettingsView } from '@/components/pos/SettingsView';
 import { OrderHistory } from '@/components/pos/OrderHistory';
 import { Helmet } from 'react-helmet-async';
 import { NeonProvider, useNeon } from '@/contexts/NeonContext';
-import { Loader2 } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { Loader2, Clock, Crown } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 
 const IndexContent = () => {
   const [activeTab, setActiveTab] = useState('pos');
   const { isLoading } = useNeon();
+  const { isTrialActive, trialDaysRemaining } = useAuth();
 
   const renderContent = () => {
     switch (activeTab) {
@@ -47,11 +51,30 @@ const IndexContent = () => {
         <title>Restaurant POS - Fast & Simple Point of Sale</title>
         <meta name="description" content="Lightweight POS system for restaurants. Generate bills, manage menu items, track inventory, and customize your brand." />
       </Helmet>
-      <div className="flex h-screen bg-background overflow-hidden">
-        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
-        <main className="flex-1 overflow-hidden">
-          {renderContent()}
-        </main>
+      <div className="flex h-screen bg-background overflow-hidden flex-col">
+        {/* Trial Banner */}
+        {isTrialActive && (
+          <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
+              <span className="text-sm font-medium">
+                Free Trial: {trialDaysRemaining} day{trialDaysRemaining !== 1 ? 's' : ''} remaining
+              </span>
+            </div>
+            <Link to="/auth">
+              <Button size="sm" variant="secondary" className="h-7 text-xs">
+                <Crown className="h-3 w-3 mr-1" />
+                Upgrade Now
+              </Button>
+            </Link>
+          </div>
+        )}
+        <div className="flex flex-1 overflow-hidden">
+          <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+          <main className="flex-1 overflow-hidden">
+            {renderContent()}
+          </main>
+        </div>
       </div>
     </>
   );

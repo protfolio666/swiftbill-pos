@@ -91,7 +91,7 @@ const SUBSCRIPTION_PLANS = [
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { signIn, signUp, user, hasActiveSubscription, refreshSubscription } = useAuth();
+  const { signIn, signUp, user, hasActiveSubscription, isTrialActive, trialDaysRemaining, refreshSubscription } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   const [showSubscription, setShowSubscription] = useState(false);
@@ -167,8 +167,11 @@ const Auth = () => {
         toast.error(error.message);
       }
     } else {
-      toast.success('Account created! Please subscribe to continue.');
-      // The useEffect will show subscription options
+      toast.success('Account created with 7-day free trial! Redirecting...');
+      // Wait a moment for trial to be created, then refresh
+      setTimeout(async () => {
+        await refreshSubscription();
+      }, 1000);
     }
   };
 
@@ -278,11 +281,22 @@ const Auth = () => {
                 <Crown className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent mb-2">
-                Choose Your Plan
+                {isTrialActive ? 'Your Trial is Active' : 'Choose Your Plan'}
               </h1>
               <p className="text-muted-foreground">
-                Welcome, {pendingUser?.email}! Select a plan to get started.
+                Welcome, {pendingUser?.email}! 
+                {isTrialActive 
+                  ? ` You have ${trialDaysRemaining} day${trialDaysRemaining !== 1 ? 's' : ''} left in your trial.`
+                  : ' Your trial has expired. Select a plan to continue.'}
               </p>
+              {isTrialActive && (
+                <Button 
+                  onClick={() => navigate('/')}
+                  className="mt-4 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white"
+                >
+                  Continue to App
+                </Button>
+              )}
             </div>
             
             <div className="grid md:grid-cols-2 gap-6">
