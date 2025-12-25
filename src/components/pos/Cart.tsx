@@ -178,33 +178,33 @@ export function Cart() {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full overflow-hidden">
       {/* Cart Header */}
-      <div className="flex items-center justify-between p-4 border-b border-border">
-        <h2 className="font-bold text-lg text-foreground">Current Order</h2>
-        <Button variant="ghost" size="sm" onClick={clearCart} className="text-muted-foreground hover:text-destructive">
-          <Trash2 className="w-4 h-4 mr-1" />
+      <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
+        <h2 className="font-bold text-sm text-foreground">Current Order</h2>
+        <Button variant="ghost" size="sm" onClick={clearCart} className="text-muted-foreground hover:text-destructive h-7 text-xs">
+          <Trash2 className="w-3 h-3 mr-1" />
           Clear
         </Button>
       </div>
 
-      {/* Cart Items */}
-      <div className="min-h-[200px] max-h-[35vh] overflow-y-auto p-4 space-y-3">
+      {/* Cart Items - scrollable */}
+      <div className="flex-1 overflow-y-auto px-3 py-2 space-y-2 min-h-0">
         {cart.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center py-10">
-            <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
-              <Receipt className="w-10 h-10 text-muted-foreground" />
+          <div className="flex flex-col items-center justify-center h-full text-center py-6">
+            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-2">
+              <Receipt className="w-6 h-6 text-muted-foreground" />
             </div>
-            <h3 className="font-semibold text-foreground mb-1">Cart is empty</h3>
-            <p className="text-sm text-muted-foreground">Add items from the menu to get started</p>
+            <h3 className="font-semibold text-foreground text-sm mb-1">Cart is empty</h3>
+            <p className="text-xs text-muted-foreground">Add items from the menu</p>
           </div>
         ) : (
           cart.map((item) => (
-            <div key={item.id} className="bg-secondary/50 rounded-xl p-3 animate-fade-in">
-              <div className="flex items-start justify-between gap-2">
+            <div key={item.id} className="bg-secondary/50 rounded-lg p-2 animate-fade-in">
+              <div className="flex items-center justify-between gap-2">
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-foreground truncate">{item.name}</h4>
-                  <p className="text-sm text-muted-foreground">
+                  <h4 className="font-medium text-foreground text-sm truncate">{item.name}</h4>
+                  <p className="text-xs text-muted-foreground">
                     {brand.currency}{item.price.toFixed(2)} each
                   </p>
                 </div>
@@ -212,31 +212,33 @@ export function Cart() {
                   variant="ghost"
                   size="icon-sm"
                   onClick={() => removeFromCart(item.id)}
-                  className="text-muted-foreground hover:text-destructive shrink-0"
+                  className="text-muted-foreground hover:text-destructive shrink-0 h-6 w-6"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-3 h-3" />
                 </Button>
               </div>
-              <div className="flex items-center justify-between mt-2">
-                <div className="flex items-center gap-2">
+              <div className="flex items-center justify-between mt-1">
+                <div className="flex items-center gap-1">
                   <Button
                     variant="outline"
                     size="icon-sm"
+                    className="h-6 w-6"
                     onClick={() => updateCartQuantity(item.id, item.quantity - 1)}
                   >
                     <Minus className="w-3 h-3" />
                   </Button>
-                  <span className="w-8 text-center font-semibold text-foreground">{item.quantity}</span>
+                  <span className="w-6 text-center font-semibold text-foreground text-sm">{item.quantity}</span>
                   <Button
                     variant="outline"
                     size="icon-sm"
+                    className="h-6 w-6"
                     onClick={() => updateCartQuantity(item.id, item.quantity + 1)}
                     disabled={item.quantity >= item.stock}
                   >
                     <Plus className="w-3 h-3" />
                   </Button>
                 </div>
-                <span className="font-bold text-foreground">
+                <span className="font-bold text-foreground text-sm">
                   {brand.currency}{(item.price * item.quantity).toFixed(2)}
                 </span>
               </div>
@@ -245,32 +247,32 @@ export function Cart() {
         )}
       </div>
 
-      {/* Cart Summary */}
-      <div className="border-t border-border p-4 space-y-3 bg-card flex-1 overflow-y-auto">
+      {/* Cart Summary - fixed at bottom */}
+      <div className="border-t border-border px-3 py-2 space-y-2 bg-card shrink-0">
         {cart.length > 0 ? (
           <>
             {/* Order Type Selection */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Order Type</label>
-              <div className="flex gap-2">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Order Type</label>
+              <div className="flex gap-1">
                 <Button
                   type="button"
                   variant={orderType === 'dine-in' ? 'default' : 'outline'}
                   size="sm"
-                  className={`flex-1 ${orderType === 'dine-in' ? 'pos-gradient' : ''}`}
+                  className={`flex-1 h-7 text-xs ${orderType === 'dine-in' ? 'pos-gradient' : ''}`}
                   onClick={() => setOrderType('dine-in')}
                 >
-                  <UtensilsCrossed className="w-4 h-4 mr-1" />
+                  <UtensilsCrossed className="w-3 h-3 mr-1" />
                   Dine-in
                 </Button>
                 <Button
                   type="button"
                   variant={orderType === 'takeaway' ? 'default' : 'outline'}
                   size="sm"
-                  className={`flex-1 ${orderType === 'takeaway' ? 'pos-gradient' : ''}`}
+                  className={`flex-1 h-7 text-xs ${orderType === 'takeaway' ? 'pos-gradient' : ''}`}
                   onClick={() => setOrderType('takeaway')}
                 >
-                  <ShoppingBag className="w-4 h-4 mr-1" />
+                  <ShoppingBag className="w-3 h-3 mr-1" />
                   Takeaway
                 </Button>
               </div>
@@ -278,13 +280,13 @@ export function Cart() {
 
             {/* Table Number (only for dine-in) */}
             {orderType === 'dine-in' && (
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-muted-foreground">Table Number</label>
+              <div className="space-y-1">
+                <label className="text-xs font-medium text-muted-foreground">Table Number</label>
                 <Select 
                   value={tableNumber?.toString() || ''} 
                   onValueChange={(val) => setTableNumber(val ? parseInt(val) : null)}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger className="h-8 text-sm">
                     <SelectValue placeholder="Select table" />
                   </SelectTrigger>
                   <SelectContent>
@@ -299,35 +301,33 @@ export function Cart() {
             )}
 
             {/* Discount Input */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">Discount</label>
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Input
-                    type="number"
-                    value={discountInput}
-                    onChange={(e) => handleDiscountChange(e.target.value)}
-                    placeholder="0"
-                    min="0"
-                    className="pr-10"
-                  />
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={toggleDiscountType}
-                    className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                  >
-                    {localDiscountType === 'percentage' ? (
-                      <Percent className="w-4 h-4" />
-                    ) : (
-                      <IndianRupee className="w-4 h-4" />
-                    )}
-                  </Button>
-                </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Discount</label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  value={discountInput}
+                  onChange={(e) => handleDiscountChange(e.target.value)}
+                  placeholder="0"
+                  min="0"
+                  className="pr-8 h-8 text-sm"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={toggleDiscountType}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6"
+                >
+                  {localDiscountType === 'percentage' ? (
+                    <Percent className="w-3 h-3" />
+                  ) : (
+                    <IndianRupee className="w-3 h-3" />
+                  )}
+                </Button>
               </div>
             </div>
 
-            <div className="space-y-2 text-sm">
+            <div className="space-y-1 text-xs">
               <div className="flex justify-between text-muted-foreground">
                 <span>Subtotal</span>
                 <span>{brand.currency}{subtotal.toFixed(2)}</span>
@@ -355,30 +355,30 @@ export function Cart() {
                   <span>{brand.currency}{tax.toFixed(2)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-lg font-bold text-foreground pt-2 border-t border-border">
+              <div className="flex justify-between text-sm font-bold text-foreground pt-1 border-t border-border">
                 <span>Total</span>
                 <span className="text-primary">{brand.currency}{total.toFixed(2)}</span>
               </div>
             </div>
 
-            <Button variant="pos" size="lg" className="w-full" onClick={handleGenerateBill}>
-              <Receipt className="w-5 h-5 mr-2" />
+            <Button variant="pos" size="sm" className="w-full h-8" onClick={handleGenerateBill}>
+              <Receipt className="w-4 h-4 mr-1" />
               Generate Bill
             </Button>
           </>
         ) : (
-          <div className="text-sm text-muted-foreground">
-            Generate a bill to enable printing.
+          <div className="text-xs text-muted-foreground">
+            Add items to generate a bill.
           </div>
         )}
         <Button
           variant="outline"
-          size="lg"
-          className="w-full"
+          size="sm"
+          className="w-full h-8"
           disabled={!lastOrder}
           onClick={() => lastOrder && printReceipt(lastOrder)}
         >
-          <Printer className="w-5 h-5 mr-2" />
+          <Printer className="w-4 h-4 mr-1" />
           Print Last Bill
         </Button>
       </div>
