@@ -6,9 +6,12 @@ import { InventoryView } from '@/components/pos/InventoryView';
 import { SettingsView } from '@/components/pos/SettingsView';
 import { OrderHistory } from '@/components/pos/OrderHistory';
 import { Helmet } from 'react-helmet-async';
+import { NeonProvider, useNeon } from '@/contexts/NeonContext';
+import { Loader2 } from 'lucide-react';
 
-const Index = () => {
+const IndexContent = () => {
   const [activeTab, setActiveTab] = useState('pos');
+  const { isLoading } = useNeon();
 
   const renderContent = () => {
     switch (activeTab) {
@@ -27,6 +30,17 @@ const Index = () => {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Syncing with database...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <>
       <Helmet>
@@ -40,6 +54,14 @@ const Index = () => {
         </main>
       </div>
     </>
+  );
+};
+
+const Index = () => {
+  return (
+    <NeonProvider>
+      <IndexContent />
+    </NeonProvider>
   );
 };
 

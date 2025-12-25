@@ -9,12 +9,14 @@ interface POSState {
 
   // Menu Items
   menuItems: MenuItem[];
+  setMenuItems: (items: MenuItem[]) => void;
   addMenuItem: (item: MenuItem) => void;
   updateMenuItem: (id: string, item: Partial<MenuItem>) => void;
   deleteMenuItem: (id: string) => void;
 
   // Categories
   categories: Category[];
+  setCategories: (categories: Category[]) => void;
   addCategory: (category: Category) => void;
   deleteCategory: (id: string) => void;
 
@@ -38,6 +40,7 @@ interface POSState {
 
   // Orders
   orders: Order[];
+  setOrders: (orders: Order[]) => void;
   createOrder: () => Order | null;
 }
 
@@ -73,6 +76,7 @@ export const usePOSStore = create<POSState>()(
       setBrand: (brand) => set((state) => ({ brand: { ...state.brand, ...brand } })),
 
       menuItems: defaultMenuItems,
+      setMenuItems: (items) => set({ menuItems: items }),
       addMenuItem: (item) => set((state) => ({ menuItems: [...state.menuItems, item] })),
       updateMenuItem: (id, updates) =>
         set((state) => ({
@@ -84,6 +88,7 @@ export const usePOSStore = create<POSState>()(
         set((state) => ({ menuItems: state.menuItems.filter((item) => item.id !== id) })),
 
       categories: defaultCategories,
+      setCategories: (categories) => set({ categories }),
       addCategory: (category) => set((state) => ({ categories: [...state.categories, category] })),
       deleteCategory: (id) =>
         set((state) => ({ categories: state.categories.filter((cat) => cat.id !== id) })),
@@ -126,6 +131,7 @@ export const usePOSStore = create<POSState>()(
       setTableNumber: (num) => set({ tableNumber: num }),
 
       orders: [],
+      setOrders: (orders) => set({ orders }),
       createOrder: () => {
         const state = get();
         if (state.cart.length === 0) return null;
