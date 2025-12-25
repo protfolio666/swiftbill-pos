@@ -14,6 +14,11 @@ export interface CartItem extends MenuItem {
 export interface Order {
   id: string;
   items: CartItem[];
+  subtotal: number;
+  discount: number;
+  discountType: 'percentage' | 'fixed';
+  cgst: number;
+  sgst: number;
   total: number;
   date: Date;
   status: 'pending' | 'completed' | 'cancelled';
@@ -24,6 +29,9 @@ export interface BrandSettings {
   logo?: string;
   currency: string;
   taxRate: number;
+  enableGST: boolean;
+  cgstRate: number;
+  sgstRate: number;
 }
 
 export type Category = {
