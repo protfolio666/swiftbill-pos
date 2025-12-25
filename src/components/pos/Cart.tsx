@@ -70,7 +70,7 @@ export function Cart() {
       try {
         const upiLink = generateUpiLink(brand.upiId, brand.name, order.total, order.id);
         qrCodeDataUrl = await QRCode.toDataURL(upiLink, {
-          width: 150,
+          width: 120,
           margin: 1,
           color: { dark: '#000000', light: '#ffffff' }
         });
@@ -79,120 +79,125 @@ export function Cart() {
       }
     }
 
+    // POS thermal printer style - 48 char width (80mm)
+    const W = 48;
+    const line = (char: string) => char.repeat(W);
+    const center = (text: string) => {
+      const pad = Math.max(0, Math.floor((W - text.length) / 2));
+      return ' '.repeat(pad) + text;
+    };
+    const leftRight = (left: string, right: string) => {
+      const space = W - left.length - right.length;
+      return left + ' '.repeat(Math.max(1, space)) + right;
+    };
+
+    const formatPrice = (amount: number) => `${brand.currency}${amount.toFixed(2)}`;
+
+    // Build receipt text
+    let receipt = '';
+    receipt += center(brand.name.toUpperCase()) + '\n';
+    receipt += line('=') + '\n';
+    receipt += center(order.id) + '\n';
+    receipt += center(orderDate.toLocaleDateString() + ' ' + orderDate.toLocaleTimeString()) + '\n';
+    receipt += center(order.orderType === 'dine-in' ? 'DINE-IN' : 'TAKEAWAY') + 
+               (order.orderType === 'dine-in' && order.tableNumber ? ` | Table ${order.tableNumber}` : '') + '\n';
+    receipt += line('-') + '\n';
+    
+    // Items header
+    receipt += leftRight('ITEM', 'QTY    AMOUNT') + '\n';
+    receipt += line('-') + '\n';
+    
+    // Items
+    order.items.forEach(item => {
+      const name = item.name.length > 28 ? item.name.substring(0, 25) + '...' : item.name;
+      const qty = item.quantity.toString().padStart(3);
+      const amount = formatPrice(item.price * item.quantity).padStart(10);
+      receipt += leftRight(name, qty + amount) + '\n';
+    });
+    
+    receipt += line('-') + '\n';
+    
+    // Totals
+    receipt += leftRight('Subtotal:', formatPrice(order.subtotal)) + '\n';
+    
+    if ((order.discount ?? 0) > 0) {
+      receipt += leftRight('Discount:', '-' + formatPrice(order.discount)) + '\n';
+    }
+    
+    receipt += leftRight('Taxable Amt:', formatPrice(taxableAmount)) + '\n';
+    
+    receipt += line('-') + '\n';
+    receipt += center('TAX DETAILS') + '\n';
+    
+    if (hasGST) {
+      receipt += leftRight(`CGST @ ${brand.cgstRate ?? 2.5}%:`, formatPrice(order.cgst ?? 0)) + '\n';
+      receipt += leftRight(`SGST @ ${brand.sgstRate ?? 2.5}%:`, formatPrice(order.sgst ?? 0)) + '\n';
+    } else {
+      receipt += leftRight(`Tax @ ${brand.taxRate ?? 5}%:`, formatPrice(totalTax)) + '\n';
+    }
+    receipt += leftRight('Total Tax:', formatPrice(totalTax)) + '\n';
+    
+    receipt += line('=') + '\n';
+    receipt += leftRight('GRAND TOTAL:', formatPrice(order.total)) + '\n';
+    receipt += line('=') + '\n';
+    
+    if (brand.upiId) {
+      receipt += '\n';
+      receipt += center('SCAN TO PAY') + '\n';
+      receipt += center('UPI: ' + brand.upiId) + '\n';
+    }
+    
+    receipt += '\n';
+    receipt += center('Thank you for your visit!') + '\n';
+    receipt += center('*****') + '\n';
+
     const receiptContent = `
       <!DOCTYPE html>
       <html>
       <head>
         <title>Receipt - ${order.id}</title>
         <style>
+          @page { margin: 0; size: 80mm auto; }
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: 'Courier New', monospace; padding: 20px; max-width: 300px; margin: 0 auto; }
-          .header { text-align: center; margin-bottom: 20px; border-bottom: 2px dashed #000; padding-bottom: 15px; }
-          .brand { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
-          .order-id { font-size: 12px; color: #666; }
-          .date { font-size: 12px; margin-top: 5px; }
-          .order-info { display: flex; justify-content: center; gap: 20px; margin-top: 8px; font-size: 14px; font-weight: bold; }
-          .order-type { background: #000; color: #fff; padding: 2px 8px; border-radius: 4px; }
-          .table-num { border: 1px solid #000; padding: 2px 8px; border-radius: 4px; }
-          .items { margin: 15px 0; }
-          .item { display: flex; justify-content: space-between; margin: 8px 0; font-size: 14px; }
-          .item-name { flex: 1; }
-          .item-qty { width: 30px; text-align: center; }
-          .item-price { width: 70px; text-align: right; }
-          .divider { border-top: 1px dashed #000; margin: 15px 0; }
-          .totals { margin-top: 10px; }
-          .total-row { display: flex; justify-content: space-between; margin: 5px 0; font-size: 14px; }
-          .discount { color: #16a34a; }
-          .tax-section { background: #f5f5f5; padding: 8px; margin: 10px 0; border-radius: 4px; }
-          .tax-header { font-weight: bold; margin-bottom: 5px; font-size: 12px; text-transform: uppercase; }
-          .grand-total { font-weight: bold; font-size: 18px; margin-top: 10px; border-top: 2px solid #000; padding-top: 10px; }
-          .upi-section { text-align: center; margin-top: 20px; padding-top: 15px; border-top: 2px dashed #000; }
-          .upi-title { font-weight: bold; font-size: 14px; margin-bottom: 10px; }
-          .upi-qr { margin: 10px auto; }
-          .upi-id { font-size: 11px; color: #666; margin-top: 5px; word-break: break-all; }
-          .upi-amount { font-size: 16px; font-weight: bold; color: #16a34a; margin-top: 5px; }
-          .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
-          @media print { body { padding: 0; } .tax-section { background: #f5f5f5; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+          body { 
+            font-family: 'Courier New', 'Lucida Console', Monaco, monospace; 
+            font-size: 12px;
+            line-height: 1.3;
+            padding: 8px;
+            width: 80mm;
+            max-width: 80mm;
+            background: #fff;
+            color: #000;
+          }
+          pre { 
+            white-space: pre-wrap; 
+            word-wrap: break-word;
+            font-family: inherit;
+            font-size: inherit;
+          }
+          .qr-section {
+            text-align: center;
+            margin: 10px 0;
+          }
+          .qr-section img {
+            width: 120px;
+            height: 120px;
+          }
+          @media print {
+            body { padding: 0; }
+          }
         </style>
       </head>
       <body>
-        <div class="header">
-          ${brand.logo ? `<img src="${brand.logo}" alt="Logo" style="width: 60px; height: 60px; object-fit: contain; margin: 0 auto 10px;" />` : ''}
-          <div class="brand">${brand.name}</div>
-          <div class="order-id">${order.id}</div>
-          <div class="date">${orderDate.toLocaleDateString()} at ${orderDate.toLocaleTimeString()}</div>
-          <div class="order-info">
-            <span class="order-type">${order.orderType === 'dine-in' ? 'DINE-IN' : 'TAKEAWAY'}</span>
-            ${order.orderType === 'dine-in' && order.tableNumber ? `<span class="table-num">Table ${order.tableNumber}</span>` : ''}
-          </div>
-        </div>
-        <div class="items">
-          ${order.items.map(item => `
-            <div class="item">
-              <span class="item-qty">${item.quantity}x</span>
-              <span class="item-name">${item.name}</span>
-              <span class="item-price">${brand.currency}${(item.price * item.quantity).toFixed(2)}</span>
-            </div>
-          `).join('')}
-        </div>
-        <div class="divider"></div>
-        <div class="totals">
-          <div class="total-row">
-            <span>Subtotal</span>
-            <span>${brand.currency}${order.subtotal.toFixed(2)}</span>
-          </div>
-          ${(order.discount ?? 0) > 0 ? `
-            <div class="total-row discount">
-              <span>Discount</span>
-              <span>-${brand.currency}${order.discount.toFixed(2)}</span>
-            </div>
-          ` : ''}
-          <div class="total-row">
-            <span>Taxable Amount</span>
-            <span>${brand.currency}${taxableAmount.toFixed(2)}</span>
-          </div>
-          <div class="tax-section">
-            <div class="tax-header">Tax Details</div>
-            ${hasGST ? `
-              <div class="total-row">
-                <span>CGST @ ${brand.cgstRate ?? 2.5}%</span>
-                <span>${brand.currency}${(order.cgst ?? 0).toFixed(2)}</span>
-              </div>
-              <div class="total-row">
-                <span>SGST @ ${brand.sgstRate ?? 2.5}%</span>
-                <span>${brand.currency}${(order.sgst ?? 0).toFixed(2)}</span>
-              </div>
-            ` : `
-              <div class="total-row">
-                <span>Tax @ ${brand.taxRate ?? 5}%</span>
-                <span>${brand.currency}${totalTax.toFixed(2)}</span>
-              </div>
-            `}
-            <div class="total-row" style="font-weight: bold; border-top: 1px dashed #ccc; padding-top: 5px; margin-top: 5px;">
-              <span>Total Tax</span>
-              <span>${brand.currency}${totalTax.toFixed(2)}</span>
-            </div>
-          </div>
-          <div class="total-row grand-total">
-            <span>GRAND TOTAL</span>
-            <span>${brand.currency}${order.total.toFixed(2)}</span>
-          </div>
-        </div>
+        <pre>${receipt}</pre>
         ${qrCodeDataUrl ? `
-          <div class="upi-section">
-            <div class="upi-title">📱 Scan to Pay with UPI</div>
-            <img class="upi-qr" src="${qrCodeDataUrl}" alt="UPI QR Code" style="width: 150px; height: 150px;" />
-            <div class="upi-amount">${brand.currency}${order.total.toFixed(2)}</div>
-            <div class="upi-id">UPI: ${brand.upiId}</div>
+          <div class="qr-section">
+            <img src="${qrCodeDataUrl}" alt="UPI QR" />
           </div>
         ` : ''}
-        <div class="footer">
-          <p>Thank you for your visit!</p>
-        </div>
       </body>
       </html>
     `;
-
 
     const printWindow = window.open('', '_blank', 'width=350,height=600');
     if (printWindow) {
