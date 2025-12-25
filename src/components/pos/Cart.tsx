@@ -175,6 +175,15 @@ export function Cart() {
             font-family: inherit;
             font-size: inherit;
           }
+          .logo-section {
+            text-align: center;
+            margin-bottom: 8px;
+          }
+          .logo-section img {
+            width: 60px;
+            height: 60px;
+            object-fit: contain;
+          }
           .qr-section {
             text-align: center;
             margin: 10px 0;
@@ -189,6 +198,11 @@ export function Cart() {
         </style>
       </head>
       <body>
+        ${brand.logo ? `
+          <div class="logo-section">
+            <img src="${brand.logo}" alt="Logo" />
+          </div>
+        ` : ''}
         <pre>${receipt}</pre>
         ${qrCodeDataUrl ? `
           <div class="qr-section">
