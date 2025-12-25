@@ -1,14 +1,16 @@
 import { useState } from 'react';
-import { Minus, Plus, Trash2, Receipt, Percent, IndianRupee } from 'lucide-react';
+import { Minus, Plus, Trash2, Receipt, Percent, IndianRupee, Printer } from 'lucide-react';
 import { usePOSStore } from '@/stores/posStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { Order } from '@/types/pos';
 
 export function Cart() {
   const { cart, brand, discount, discountType, updateCartQuantity, removeFromCart, clearCart, createOrder, setDiscount } = usePOSStore();
   const [discountInput, setDiscountInput] = useState(discount.toString());
   const [localDiscountType, setLocalDiscountType] = useState<'percentage' | 'fixed'>(discountType);
+  const [lastOrder, setLastOrder] = useState<Order | null>(null);
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const discountAmount = localDiscountType === 'percentage' 
@@ -41,10 +43,106 @@ export function Cart() {
     setDiscount(parseFloat(discountInput) || 0, newType);
   };
 
+  const printReceipt = (order: Order) => {
+    const orderDate = new Date(order.date);
+    const hasGST = order.cgst > 0 || order.sgst > 0;
+
+    const receiptContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Receipt - ${order.id}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Courier New', monospace; padding: 20px; max-width: 300px; margin: 0 auto; }
+          .header { text-align: center; margin-bottom: 20px; border-bottom: 2px dashed #000; padding-bottom: 15px; }
+          .brand { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
+          .order-id { font-size: 12px; color: #666; }
+          .date { font-size: 12px; margin-top: 5px; }
+          .items { margin: 15px 0; }
+          .item { display: flex; justify-content: space-between; margin: 8px 0; font-size: 14px; }
+          .item-name { flex: 1; }
+          .item-qty { width: 30px; text-align: center; }
+          .item-price { width: 70px; text-align: right; }
+          .divider { border-top: 1px dashed #000; margin: 15px 0; }
+          .totals { margin-top: 10px; }
+          .total-row { display: flex; justify-content: space-between; margin: 5px 0; font-size: 14px; }
+          .discount { color: #16a34a; }
+          .grand-total { font-weight: bold; font-size: 18px; margin-top: 10px; border-top: 2px solid #000; padding-top: 10px; }
+          .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
+          @media print { body { padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="brand">${brand.name}</div>
+          <div class="order-id">${order.id}</div>
+          <div class="date">${orderDate.toLocaleDateString()} at ${orderDate.toLocaleTimeString()}</div>
+        </div>
+        <div class="items">
+          ${order.items.map(item => `
+            <div class="item">
+              <span class="item-qty">${item.quantity}x</span>
+              <span class="item-name">${item.name}</span>
+              <span class="item-price">${brand.currency}${(item.price * item.quantity).toFixed(2)}</span>
+            </div>
+          `).join('')}
+        </div>
+        <div class="divider"></div>
+        <div class="totals">
+          <div class="total-row">
+            <span>Subtotal</span>
+            <span>${brand.currency}${order.subtotal.toFixed(2)}</span>
+          </div>
+          ${order.discount > 0 ? `
+            <div class="total-row discount">
+              <span>Discount</span>
+              <span>-${brand.currency}${order.discount.toFixed(2)}</span>
+            </div>
+          ` : ''}
+          ${hasGST ? `
+            <div class="total-row">
+              <span>CGST (${brand.cgstRate ?? 2.5}%)</span>
+              <span>${brand.currency}${order.cgst.toFixed(2)}</span>
+            </div>
+            <div class="total-row">
+              <span>SGST (${brand.sgstRate ?? 2.5}%)</span>
+              <span>${brand.currency}${order.sgst.toFixed(2)}</span>
+            </div>
+          ` : `
+            <div class="total-row">
+              <span>Tax</span>
+              <span>${brand.currency}${(order.total - order.subtotal + order.discount).toFixed(2)}</span>
+            </div>
+          `}
+          <div class="total-row grand-total">
+            <span>TOTAL</span>
+            <span>${brand.currency}${order.total.toFixed(2)}</span>
+          </div>
+        </div>
+        <div class="footer">
+          <p>Thank you for your visit!</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank', 'width=350,height=600');
+    if (printWindow) {
+      printWindow.document.write(receiptContent);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
+    }
+  };
+
   const handleGenerateBill = () => {
     const order = createOrder();
     if (order) {
       setDiscountInput('0');
+      setLastOrder(order);
       toast.success(`Bill generated! Order #${order.id}`, {
         description: `Total: ${brand.currency}${order.total.toFixed(2)}`,
       });
@@ -192,6 +290,17 @@ export function Cart() {
           <Receipt className="w-5 h-5 mr-2" />
           Generate Bill
         </Button>
+        {lastOrder && (
+          <Button 
+            variant="outline" 
+            size="lg" 
+            className="w-full" 
+            onClick={() => printReceipt(lastOrder)}
+          >
+            <Printer className="w-5 h-5 mr-2" />
+            Print Last Bill
+          </Button>
+        )}
       </div>
     </div>
   );
