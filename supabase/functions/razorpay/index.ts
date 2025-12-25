@@ -29,46 +29,75 @@ serve(async (req) => {
         throw new Error('User ID is required');
       }
 
-      // Check if user already has any subscription
+      // Check if user already has an ACTIVE subscription
       const { data: existingSub } = await supabase
         .from('subscriptions')
         .select('*')
         .eq('user_id', userId)
         .maybeSingle();
 
-      if (existingSub) {
-        return new Response(JSON.stringify({ 
-          success: true, 
-          message: 'User already has subscription', 
-          subscription: existingSub 
-        }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+      // Only skip if there's an active subscription with valid date
+      if (existingSub && existingSub.status === 'active' && existingSub.valid_until) {
+        const isStillValid = new Date(existingSub.valid_until) > new Date();
+        if (isStillValid) {
+          return new Response(JSON.stringify({ 
+            success: true, 
+            message: 'User already has active subscription', 
+            subscription: existingSub 
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
       }
 
       // Create 7-day trial
       const trialEndDate = new Date();
       trialEndDate.setDate(trialEndDate.getDate() + 7);
 
-      const { data: newSub, error: subError } = await supabase
-        .from('subscriptions')
-        .insert({
-          user_id: userId,
-          plan_name: 'trial',
-          status: 'active',
-          amount: 0,
-          currency: 'INR',
-          valid_until: trialEndDate.toISOString(),
-        })
-        .select()
-        .single();
+      let newSub;
+      if (existingSub) {
+        // Update existing pending/expired subscription to trial
+        const { data: updatedSub, error: updateError } = await supabase
+          .from('subscriptions')
+          .update({
+            plan_name: 'trial',
+            status: 'active',
+            amount: 0,
+            currency: 'INR',
+            valid_until: trialEndDate.toISOString(),
+          })
+          .eq('user_id', userId)
+          .select()
+          .single();
 
-      if (subError) {
-        console.error('Error creating trial:', subError);
-        throw subError;
+        if (updateError) {
+          console.error('Error updating to trial:', updateError);
+          throw updateError;
+        }
+        newSub = updatedSub;
+      } else {
+        // Create new trial subscription
+        const { data: createdSub, error: subError } = await supabase
+          .from('subscriptions')
+          .insert({
+            user_id: userId,
+            plan_name: 'trial',
+            status: 'active',
+            amount: 0,
+            currency: 'INR',
+            valid_until: trialEndDate.toISOString(),
+          })
+          .select()
+          .single();
+
+        if (subError) {
+          console.error('Error creating trial:', subError);
+          throw subError;
+        }
+        newSub = createdSub;
       }
 
-      console.log('Trial subscription created:', newSub);
+      console.log('Trial subscription created/updated:', newSub);
       return new Response(JSON.stringify({ success: true, subscription: newSub }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
