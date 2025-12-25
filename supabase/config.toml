@@ -2,3 +2,6 @@ project_id = "nptoxwmbsxefhqjcxjhg"
 
 [functions.neon-db]
 verify_jwt = false
+
+[functions.razorpay]
+verify_jwt = false

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -8,8 +8,41 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Helmet } from 'react-helmet-async';
-import { UtensilsCrossed, Loader2, Mail, Lock, User, Store } from 'lucide-react';
+import { UtensilsCrossed, Loader2, Mail, Lock, User, Store, Crown, Check, CreditCard } from 'lucide-react';
 import { z } from 'zod';
+import { supabase } from '@/integrations/supabase/client';
+
+declare global {
+  interface Window {
+    Razorpay: new (options: RazorpayOptions) => RazorpayInstance;
+  }
+}
+
+interface RazorpayOptions {
+  key: string;
+  amount: number;
+  currency: string;
+  name: string;
+  description: string;
+  order_id: string;
+  handler: (response: RazorpayResponse) => void;
+  prefill: {
+    email: string;
+  };
+  theme: {
+    color: string;
+  };
+}
+
+interface RazorpayInstance {
+  open: () => void;
+}
+
+interface RazorpayResponse {
+  razorpay_payment_id: string;
+  razorpay_order_id: string;
+  razorpay_signature: string;
+}
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -23,10 +56,46 @@ const signupSchema = z.object({
   ownerName: z.string().min(1, 'Owner name is required'),
 });
 
+const loadRazorpayScript = (): Promise<boolean> => {
+  return new Promise((resolve) => {
+    if (document.getElementById('razorpay-script')) {
+      resolve(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.id = 'razorpay-script';
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+};
+
+const SUBSCRIPTION_PLANS = [
+  {
+    id: 'monthly',
+    name: 'Monthly',
+    price: 499,
+    duration: '1 Month',
+    features: ['Unlimited Orders', 'Menu Management', 'Sales Analytics', 'Cloud Sync', 'Priority Support'],
+  },
+  {
+    id: 'yearly',
+    name: 'Yearly',
+    price: 4999,
+    duration: '12 Months',
+    features: ['Everything in Monthly', '2 Months Free', 'Priority Support', 'Early Access Features'],
+    popular: true,
+  },
+];
+
 const Auth = () => {
   const navigate = useNavigate();
-  const { signIn, signUp, user } = useAuth();
+  const { signIn, signUp, user, hasActiveSubscription, refreshSubscription } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [isPaymentLoading, setIsPaymentLoading] = useState(false);
+  const [showSubscription, setShowSubscription] = useState(false);
+  const [pendingUser, setPendingUser] = useState<{ email: string } | null>(null);
   
   // Login form state
   const [loginEmail, setLoginEmail] = useState('');
@@ -38,11 +107,15 @@ const Auth = () => {
   const [restaurantName, setRestaurantName] = useState('');
   const [ownerName, setOwnerName] = useState('');
 
-  // Redirect if already logged in
-  if (user) {
-    navigate('/');
-    return null;
-  }
+  // Check if user is logged in and has subscription
+  useEffect(() => {
+    if (user && hasActiveSubscription) {
+      navigate('/');
+    } else if (user && !hasActiveSubscription) {
+      setShowSubscription(true);
+      setPendingUser({ email: user.email || '' });
+    }
+  }, [user, hasActiveSubscription, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -65,7 +138,7 @@ const Auth = () => {
       }
     } else {
       toast.success('Welcome back!');
-      navigate('/');
+      // The useEffect will handle redirect based on subscription status
     }
   };
 
@@ -94,10 +167,190 @@ const Auth = () => {
         toast.error(error.message);
       }
     } else {
-      toast.success('Account created successfully!');
-      navigate('/');
+      toast.success('Account created! Please subscribe to continue.');
+      // The useEffect will show subscription options
     }
   };
+
+  const handlePayment = async (plan: typeof SUBSCRIPTION_PLANS[0]) => {
+    if (!user) {
+      toast.error('Please login first');
+      return;
+    }
+
+    setIsPaymentLoading(true);
+    
+    try {
+      const scriptLoaded = await loadRazorpayScript();
+      if (!scriptLoaded) {
+        toast.error('Failed to load payment gateway. Please try again.');
+        setIsPaymentLoading(false);
+        return;
+      }
+
+      // Create order
+      const { data, error } = await supabase.functions.invoke('razorpay', {
+        body: {
+          action: 'create-order',
+          data: {
+            amount: plan.price,
+            currency: 'INR',
+            userId: user.id,
+            planName: plan.id,
+          }
+        }
+      });
+
+      if (error || !data?.success) {
+        throw new Error(data?.error || 'Failed to create order');
+      }
+
+      const options: RazorpayOptions = {
+        key: data.key_id,
+        amount: data.order.amount,
+        currency: data.order.currency,
+        name: 'Restaurant POS',
+        description: `${plan.name} Subscription`,
+        order_id: data.order.id,
+        handler: async (response: RazorpayResponse) => {
+          try {
+            // Verify payment
+            const { data: verifyData, error: verifyError } = await supabase.functions.invoke('razorpay', {
+              body: {
+                action: 'verify-payment',
+                data: {
+                  razorpay_order_id: response.razorpay_order_id,
+                  razorpay_payment_id: response.razorpay_payment_id,
+                  razorpay_signature: response.razorpay_signature,
+                  userId: user.id,
+                }
+              }
+            });
+
+            if (verifyError || !verifyData?.success) {
+              throw new Error('Payment verification failed');
+            }
+
+            toast.success('Payment successful! Welcome to Restaurant POS!');
+            await refreshSubscription();
+            navigate('/');
+          } catch (err) {
+            console.error('Payment verification error:', err);
+            toast.error('Payment verification failed. Please contact support.');
+          }
+        },
+        prefill: {
+          email: user.email || '',
+        },
+        theme: {
+          color: '#f97316',
+        },
+      };
+
+      const razorpay = new window.Razorpay(options);
+      razorpay.open();
+    } catch (err) {
+      console.error('Payment error:', err);
+      toast.error('Failed to initiate payment. Please try again.');
+    } finally {
+      setIsPaymentLoading(false);
+    }
+  };
+
+  if (showSubscription && user) {
+    return (
+      <>
+        <Helmet>
+          <title>Choose Plan - Restaurant POS</title>
+          <meta name="description" content="Choose a subscription plan to access Restaurant POS features." />
+        </Helmet>
+        
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950 p-4">
+          {/* Background decorative elements */}
+          <div className="absolute inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute -top-40 -right-40 w-80 h-80 bg-orange-200/30 dark:bg-orange-500/10 rounded-full blur-3xl" />
+            <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-amber-200/30 dark:bg-amber-500/10 rounded-full blur-3xl" />
+          </div>
+          
+          <div className="relative z-10 max-w-4xl w-full">
+            <div className="text-center mb-8">
+              <div className="mx-auto w-16 h-16 bg-gradient-to-br from-orange-500 to-amber-500 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-orange-500/20">
+                <Crown className="w-8 h-8 text-white" />
+              </div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent mb-2">
+                Choose Your Plan
+              </h1>
+              <p className="text-muted-foreground">
+                Welcome, {pendingUser?.email}! Select a plan to get started.
+              </p>
+            </div>
+            
+            <div className="grid md:grid-cols-2 gap-6">
+              {SUBSCRIPTION_PLANS.map((plan) => (
+                <Card 
+                  key={plan.id} 
+                  className={`relative overflow-hidden transition-all duration-300 hover:shadow-xl ${
+                    plan.popular 
+                      ? 'border-2 border-orange-500 shadow-lg shadow-orange-500/20' 
+                      : 'border-zinc-200 dark:border-zinc-700'
+                  }`}
+                >
+                  {plan.popular && (
+                    <div className="absolute top-0 right-0 bg-gradient-to-r from-orange-500 to-amber-500 text-white text-xs font-semibold px-3 py-1 rounded-bl-lg">
+                      Most Popular
+                    </div>
+                  )}
+                  
+                  <CardHeader className="pb-4">
+                    <CardTitle className="text-xl">{plan.name}</CardTitle>
+                    <CardDescription>{plan.duration}</CardDescription>
+                    <div className="mt-4">
+                      <span className="text-4xl font-bold">₹{plan.price}</span>
+                      <span className="text-muted-foreground ml-2">/ {plan.duration.toLowerCase()}</span>
+                    </div>
+                  </CardHeader>
+                  
+                  <CardContent>
+                    <ul className="space-y-3 mb-6">
+                      {plan.features.map((feature, index) => (
+                        <li key={index} className="flex items-center gap-2">
+                          <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
+                          <span className="text-sm">{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    
+                    <Button 
+                      onClick={() => handlePayment(plan)}
+                      disabled={isPaymentLoading}
+                      className={`w-full h-11 font-semibold ${
+                        plan.popular 
+                          ? 'bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white shadow-lg shadow-orange-500/25' 
+                          : ''
+                      }`}
+                      variant={plan.popular ? 'default' : 'outline'}
+                    >
+                      {isPaymentLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard className="mr-2 h-4 w-4" />
+                          Subscribe Now
+                        </>
+                      )}
+                    </Button>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   return (
     <>
