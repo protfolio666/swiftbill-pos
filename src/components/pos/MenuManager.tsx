@@ -22,12 +22,17 @@ import { toast } from 'sonner';
 import { MenuItem } from '@/types/pos';
 import { useNeon } from '@/contexts/NeonContext';
 
+const CATEGORY_ICONS = ['🍔', '🍕', '🍜', '🍣', '🥗', '🍰', '☕', '🥤', '🍺', '🍷'];
+
 export function MenuManager() {
-  const { menuItems, categories, brand } = usePOSStore();
+  const { menuItems, categories, brand, addCategory } = usePOSStore();
   const { addMenuItem, updateMenuItem, deleteMenuItem } = useNeon();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryIcon, setNewCategoryIcon] = useState('🍔');
   const [formData, setFormData] = useState({
     name: '',
     price: '',
@@ -38,6 +43,36 @@ export function MenuManager() {
   const resetForm = () => {
     setFormData({ name: '', price: '', category: '', stock: '' });
     setEditingItem(null);
+    setIsAddingCategory(false);
+    setNewCategoryName('');
+    setNewCategoryIcon('🍔');
+  };
+
+  const handleAddNewCategory = () => {
+    if (!newCategoryName.trim()) {
+      toast.error('Please enter a category name');
+      return;
+    }
+    
+    const existingCategory = categories.find(
+      c => c.name.toLowerCase() === newCategoryName.trim().toLowerCase()
+    );
+    
+    if (existingCategory) {
+      toast.error('Category already exists');
+      return;
+    }
+    
+    addCategory({
+      id: `cat-${Date.now()}`,
+      name: newCategoryName.trim(),
+      icon: newCategoryIcon,
+    });
+    
+    setFormData({ ...formData, category: newCategoryName.trim() });
+    setIsAddingCategory(false);
+    setNewCategoryName('');
+    toast.success('Category added!');
   };
 
   const handleOpenDialog = (item?: MenuItem) => {
@@ -147,22 +182,72 @@ export function MenuManager() {
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="category">Category</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) => setFormData({ ...formData, category: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((cat) => (
-                      <SelectItem key={cat.id} value={cat.name}>
-                        {cat.icon} {cat.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="category">Category</Label>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 text-xs text-primary"
+                    onClick={() => setIsAddingCategory(!isAddingCategory)}
+                  >
+                    {isAddingCategory ? 'Select Existing' : '+ Add New'}
+                  </Button>
+                </div>
+                
+                {isAddingCategory ? (
+                  <div className="space-y-3 p-3 border border-border rounded-lg bg-secondary/30">
+                    <div className="flex gap-2">
+                      <Select
+                        value={newCategoryIcon}
+                        onValueChange={setNewCategoryIcon}
+                      >
+                        <SelectTrigger className="w-16">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CATEGORY_ICONS.map((icon) => (
+                            <SelectItem key={icon} value={icon}>
+                              {icon}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        value={newCategoryName}
+                        onChange={(e) => setNewCategoryName(e.target.value)}
+                        placeholder="Category name"
+                        className="flex-1"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="w-full"
+                      onClick={handleAddNewCategory}
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add Category
+                    </Button>
+                  </div>
+                ) : (
+                  <Select
+                    value={formData.category}
+                    onValueChange={(value) => setFormData({ ...formData, category: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((cat) => (
+                        <SelectItem key={cat.id} value={cat.name}>
+                          {cat.icon} {cat.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
               </div>
               <div className="flex gap-3 pt-4">
                 <Button type="button" variant="outline" className="flex-1" onClick={() => setIsDialogOpen(false)}>
