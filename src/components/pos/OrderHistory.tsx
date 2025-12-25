@@ -7,20 +7,28 @@ import {
   ChevronUp,
   Clock,
   DollarSign,
-  Printer
+  Printer,
+  Download,
+  CalendarIcon
 } from 'lucide-react';
 import { usePOSStore } from '@/stores/posStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { format, isToday, isThisWeek, startOfDay, startOfWeek, isSameDay } from 'date-fns';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format, isToday, isThisWeek, startOfDay, startOfWeek, isSameDay, isWithinInterval, endOfDay } from 'date-fns';
 import { Order } from '@/types/pos';
 import { SalesChart } from './SalesChart';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 export function OrderHistory() {
   const { orders, brand } = usePOSStore();
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<'all' | 'today' | 'week'>('all');
+  const [exportStartDate, setExportStartDate] = useState<Date | undefined>();
+  const [exportEndDate, setExportEndDate] = useState<Date | undefined>();
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
@@ -59,6 +67,105 @@ export function OrderHistory() {
       }
       return next;
     });
+  };
+
+  const exportToCSV = () => {
+    let ordersToExport = orders;
+
+    // Filter by date range if both dates are selected
+    if (exportStartDate && exportEndDate) {
+      ordersToExport = orders.filter((order) => {
+        const orderDate = new Date(order.date);
+        return isWithinInterval(orderDate, {
+          start: startOfDay(exportStartDate),
+          end: endOfDay(exportEndDate),
+        });
+      });
+    }
+
+    if (ordersToExport.length === 0) {
+      toast.error('No orders found in the selected date range');
+      return;
+    }
+
+    // Create CSV headers
+    const headers = [
+      'Order ID',
+      'Date',
+      'Time',
+      'Items',
+      'Item Details',
+      'Subtotal',
+      'Discount',
+      'CGST',
+      'SGST',
+      'Total Tax',
+      'Grand Total',
+    ];
+
+    // Create CSV rows
+    const rows = ordersToExport.map((order) => {
+      const orderDate = new Date(order.date);
+      const itemNames = order.items.map((item) => `${item.quantity}x ${item.name}`).join('; ');
+      const itemDetails = order.items
+        .map((item) => `${item.name}: ${brand.currency}${item.price} x ${item.quantity} = ${brand.currency}${(item.price * item.quantity).toFixed(2)}`)
+        .join('; ');
+      const totalTax = (order.cgst ?? 0) + (order.sgst ?? 0) || (order.total - order.subtotal + (order.discount ?? 0));
+
+      return [
+        order.id,
+        format(orderDate, 'yyyy-MM-dd'),
+        format(orderDate, 'HH:mm:ss'),
+        order.items.length,
+        `"${itemDetails}"`,
+        order.subtotal.toFixed(2),
+        (order.discount ?? 0).toFixed(2),
+        (order.cgst ?? 0).toFixed(2),
+        (order.sgst ?? 0).toFixed(2),
+        totalTax.toFixed(2),
+        order.total.toFixed(2),
+      ];
+    });
+
+    // Calculate summary
+    const totalRevenue = ordersToExport.reduce((sum, o) => sum + o.total, 0);
+    const totalDiscount = ordersToExport.reduce((sum, o) => sum + (o.discount ?? 0), 0);
+    const totalCGST = ordersToExport.reduce((sum, o) => sum + (o.cgst ?? 0), 0);
+    const totalSGST = ordersToExport.reduce((sum, o) => sum + (o.sgst ?? 0), 0);
+    const totalTaxCollected = totalCGST + totalSGST;
+
+    // Add summary rows
+    rows.push([]);
+    rows.push(['SUMMARY']);
+    rows.push(['Total Orders', ordersToExport.length.toString()]);
+    rows.push(['Total Revenue', `${brand.currency}${totalRevenue.toFixed(2)}`]);
+    rows.push(['Total Discount Given', `${brand.currency}${totalDiscount.toFixed(2)}`]);
+    rows.push(['Total CGST Collected', `${brand.currency}${totalCGST.toFixed(2)}`]);
+    rows.push(['Total SGST Collected', `${brand.currency}${totalSGST.toFixed(2)}`]);
+    rows.push(['Total Tax Collected', `${brand.currency}${totalTaxCollected.toFixed(2)}`]);
+
+    // Convert to CSV string
+    const csvContent = [
+      headers.join(','),
+      ...rows.map((row) => row.join(',')),
+    ].join('\n');
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    
+    const dateRange = exportStartDate && exportEndDate 
+      ? `_${format(exportStartDate, 'yyyy-MM-dd')}_to_${format(exportEndDate, 'yyyy-MM-dd')}`
+      : `_all_orders`;
+    link.setAttribute('download', `orders_report${dateRange}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast.success(`Exported ${ordersToExport.length} orders to CSV`);
   };
 
   const printReceipt = (order: Order) => {
@@ -232,6 +339,98 @@ export function OrderHistory() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Export Section */}
+      <Card className="border-0 pos-shadow mb-6">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Download className="w-5 h-5" />
+            Export Orders Report
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">From Date</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-[180px] justify-start text-left font-normal",
+                      !exportStartDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {exportStartDate ? format(exportStartDate, "PPP") : <span>Start date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={exportStartDate}
+                    onSelect={setExportStartDate}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">To Date</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-[180px] justify-start text-left font-normal",
+                      !exportEndDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {exportEndDate ? format(exportEndDate, "PPP") : <span>End date</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={exportEndDate}
+                    onSelect={setExportEndDate}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <Button onClick={exportToCSV} className="pos-gradient gap-2">
+              <Download className="w-4 h-4" />
+              Export to CSV
+            </Button>
+
+            {(exportStartDate || exportEndDate) && (
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={() => {
+                  setExportStartDate(undefined);
+                  setExportEndDate(undefined);
+                }}
+              >
+                Clear dates
+              </Button>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-3">
+            {!exportStartDate && !exportEndDate 
+              ? "Leave dates empty to export all orders" 
+              : exportStartDate && exportEndDate 
+                ? `Will export orders from ${format(exportStartDate, "MMM dd, yyyy")} to ${format(exportEndDate, "MMM dd, yyyy")}`
+                : "Select both dates to filter, or leave empty for all orders"}
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Orders Section */}
       <Card className="border-0 pos-shadow overflow-hidden mb-6">
