@@ -9,7 +9,6 @@ import { Helmet } from 'react-helmet-async';
 import { NeonProvider, useNeon } from '@/contexts/NeonContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { Loader2, Clock, Crown } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 
 const IndexContent = () => {
@@ -61,12 +60,15 @@ const IndexContent = () => {
                 Free Trial: {trialDaysRemaining} day{trialDaysRemaining !== 1 ? 's' : ''} remaining
               </span>
             </div>
-            <Link to="/auth">
-              <Button size="sm" variant="secondary" className="h-7 text-xs">
-                <Crown className="h-3 w-3 mr-1" />
-                Upgrade Now
-              </Button>
-            </Link>
+            <Button 
+              size="sm" 
+              variant="secondary" 
+              className="h-7 text-xs"
+              onClick={() => setActiveTab('settings')}
+            >
+              <Crown className="h-3 w-3 mr-1" />
+              Upgrade Now
+            </Button>
           </div>
         )}
         <div className="flex flex-1 overflow-hidden">
