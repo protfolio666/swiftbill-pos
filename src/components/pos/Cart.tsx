@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Order } from '@/types/pos';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useNeon } from '@/contexts/NeonContext';
 
 export function Cart() {
   const { 
@@ -13,6 +14,7 @@ export function Cart() {
     updateCartQuantity, removeFromCart, clearCart, createOrder, 
     setDiscount, setOrderType, setTableNumber 
   } = usePOSStore();
+  const { saveOrder } = useNeon();
   const [discountInput, setDiscountInput] = useState(discount.toString());
   const [localDiscountType, setLocalDiscountType] = useState<'percentage' | 'fixed'>(discountType);
   const [lastOrder, setLastOrder] = useState<Order | null>(null);
@@ -167,11 +169,13 @@ export function Cart() {
     }
   };
 
-  const handleGenerateBill = () => {
+  const handleGenerateBill = async () => {
     const order = createOrder();
     if (order) {
       setDiscountInput('0');
       setLastOrder(order);
+      // Save to Neon DB
+      await saveOrder(order);
       toast.success(`Bill generated! Order #${order.id}`, {
         description: `Total: ${brand.currency}${order.total.toFixed(2)}`,
       });

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Pencil, Trash2, X, Check } from 'lucide-react';
+import { Plus, Pencil, Trash2 } from 'lucide-react';
 import { usePOSStore } from '@/stores/posStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,11 +20,14 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { MenuItem } from '@/types/pos';
+import { useNeon } from '@/contexts/NeonContext';
 
 export function MenuManager() {
-  const { menuItems, categories, brand, addMenuItem, updateMenuItem, deleteMenuItem } = usePOSStore();
+  const { menuItems, categories, brand } = usePOSStore();
+  const { addMenuItem, updateMenuItem, deleteMenuItem } = useNeon();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     price: '',
@@ -52,13 +55,18 @@ export function MenuManager() {
     setIsDialogOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!formData.name || !formData.price || !formData.category) {
       toast.error('Please fill all required fields');
       return;
     }
+
+    setIsSubmitting(true);
+
+    const selectedCategory = categories.find(c => c.name === formData.category);
+    const categoryId = selectedCategory ? Number(selectedCategory.id) : null;
 
     const itemData = {
       name: formData.name,
@@ -67,24 +75,23 @@ export function MenuManager() {
       stock: parseInt(formData.stock) || 0,
     };
 
+    let success = false;
     if (editingItem) {
-      updateMenuItem(editingItem.id, itemData);
-      toast.success('Item updated successfully');
+      success = await updateMenuItem(editingItem.id, itemData, categoryId);
     } else {
-      addMenuItem({
-        id: `item-${Date.now()}`,
-        ...itemData,
-      });
-      toast.success('Item added successfully');
+      success = await addMenuItem(itemData, categoryId);
     }
 
-    setIsDialogOpen(false);
-    resetForm();
+    setIsSubmitting(false);
+
+    if (success) {
+      setIsDialogOpen(false);
+      resetForm();
+    }
   };
 
-  const handleDelete = (id: string) => {
-    deleteMenuItem(id);
-    toast.success('Item deleted');
+  const handleDelete = async (id: string) => {
+    await deleteMenuItem(id);
   };
 
   return (
@@ -161,8 +168,8 @@ export function MenuManager() {
                 <Button type="button" variant="outline" className="flex-1" onClick={() => setIsDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" variant="pos" className="flex-1">
-                  {editingItem ? 'Update' : 'Add'} Item
+                <Button type="submit" variant="pos" className="flex-1" disabled={isSubmitting}>
+                  {isSubmitting ? 'Saving...' : editingItem ? 'Update' : 'Add'} Item
                 </Button>
               </div>
             </form>
