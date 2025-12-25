@@ -1,12 +1,15 @@
-import { useCallback, useEffect, useState } from 'react';
-import { usePOSStore } from '@/stores/posStore';
+import { useCallback, useEffect, useState, useRef } from 'react';
+import { usePOSStore, resetPOSStore } from '@/stores/posStore';
 import * as neonApi from '@/services/neonApi';
 import { toast } from 'sonner';
 import { MenuItem, Category, Order } from '@/types/pos';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function useNeonSync() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSynced, setIsSynced] = useState(false);
+  const { user } = useAuth();
+  const previousUserIdRef = useRef<string | null>(null);
 
   const setCategories = usePOSStore((state) => state.setCategories);
   const setMenuItems = usePOSStore((state) => state.setMenuItems);
@@ -18,7 +21,12 @@ export function useNeonSync() {
   const updateMenuItemLocal = usePOSStore((state) => state.updateMenuItem);
   const deleteMenuItemLocal = usePOSStore((state) => state.deleteMenuItem);
 
-  const syncFromNeon = async () => {
+  const syncFromNeon = useCallback(async () => {
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
+
     setIsLoading(true);
     try {
       // Fetch categories
@@ -29,7 +37,7 @@ export function useNeonSync() {
           name: cat.name,
           icon: '📦',
         }));
-        setCategories(categories);
+        setCategories(categories.length > 0 ? categories : []);
       }
 
       // Fetch menu items
@@ -86,7 +94,28 @@ export function useNeonSync() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user, setCategories, setMenuItems, setOrders, setBrand]);
+
+  // Reset and resync when user changes
+  useEffect(() => {
+    const currentUserId = user?.id || null;
+    
+    if (previousUserIdRef.current !== currentUserId) {
+      // User changed - reset store and resync
+      if (previousUserIdRef.current !== null) {
+        // Only reset if there was a previous user (not initial load)
+        resetPOSStore();
+      }
+      previousUserIdRef.current = currentUserId;
+      
+      if (currentUserId) {
+        syncFromNeon();
+      } else {
+        setIsLoading(false);
+        setIsSynced(false);
+      }
+    }
+  }, [user?.id, syncFromNeon]);
 
   // Save category to Neon
   const addCategory = useCallback(async (name: string, icon: string) => {
@@ -216,10 +245,6 @@ export function useNeonSync() {
       toast.error('Failed to save settings to database');
       return false;
     }
-  }, []);
-
-  useEffect(() => {
-    syncFromNeon();
   }, []);
 
   return { 

@@ -44,23 +44,15 @@ interface POSState {
   createOrder: () => Order | null;
 }
 
-const defaultCategories: Category[] = [
-  { id: '1', name: 'Starters', icon: '🥗' },
-  { id: '2', name: 'Main Course', icon: '🍛' },
-  { id: '3', name: 'Beverages', icon: '🥤' },
-  { id: '4', name: 'Desserts', icon: '🍰' },
-];
-
-const defaultMenuItems: MenuItem[] = [
-  { id: '1', name: 'Caesar Salad', price: 12.99, category: 'Starters', stock: 50 },
-  { id: '2', name: 'Tomato Soup', price: 8.99, category: 'Starters', stock: 30 },
-  { id: '3', name: 'Grilled Chicken', price: 18.99, category: 'Main Course', stock: 25 },
-  { id: '4', name: 'Pasta Carbonara', price: 16.99, category: 'Main Course', stock: 40 },
-  { id: '5', name: 'Fresh Lemonade', price: 4.99, category: 'Beverages', stock: 100 },
-  { id: '6', name: 'Iced Coffee', price: 5.99, category: 'Beverages', stock: 80 },
-  { id: '7', name: 'Chocolate Cake', price: 7.99, category: 'Desserts', stock: 20 },
-  { id: '8', name: 'Ice Cream', price: 5.99, category: 'Desserts', stock: 45 },
-];
+const defaultBrand: BrandSettings = {
+  name: 'My Restaurant',
+  currency: '₹',
+  taxRate: 5,
+  enableGST: true,
+  cgstRate: 2.5,
+  sgstRate: 2.5,
+  upiId: '',
+};
 
 // Get the current user ID from localStorage to make storage user-specific
 const getUserStorageKey = () => {
@@ -81,18 +73,10 @@ const getUserStorageKey = () => {
 export const usePOSStore = create<POSState>()(
   persist(
     (set, get) => ({
-      brand: {
-        name: 'My Restaurant',
-        currency: '₹',
-        taxRate: 5,
-        enableGST: true,
-        cgstRate: 2.5,
-        sgstRate: 2.5,
-        upiId: '',
-      },
+      brand: defaultBrand,
       setBrand: (brand) => set((state) => ({ brand: { ...state.brand, ...brand } })),
 
-      menuItems: defaultMenuItems,
+      menuItems: [], // Start empty - data comes from Neon per user
       setMenuItems: (items) => set({ menuItems: items }),
       addMenuItem: (item) => set((state) => ({ menuItems: [...state.menuItems, item] })),
       updateMenuItem: (id, updates) =>
@@ -104,7 +88,7 @@ export const usePOSStore = create<POSState>()(
       deleteMenuItem: (id) =>
         set((state) => ({ menuItems: state.menuItems.filter((item) => item.id !== id) })),
 
-      categories: defaultCategories,
+      categories: [], // Start empty - data comes from Neon per user
       setCategories: (categories) => set({ categories }),
       addCategory: (category) => set((state) => ({ categories: [...state.categories, category] })),
       deleteCategory: (id) =>
@@ -147,7 +131,7 @@ export const usePOSStore = create<POSState>()(
       setOrderType: (type) => set({ orderType: type }),
       setTableNumber: (num) => set({ tableNumber: num }),
 
-      orders: [],
+      orders: [], // Start empty - data comes from Neon per user
       setOrders: (orders) => set({ orders }),
       createOrder: () => {
         const state = get();
@@ -195,9 +179,12 @@ export const usePOSStore = create<POSState>()(
 
         // Update stock
         state.cart.forEach((cartItem) => {
-          state.updateMenuItem(cartItem.id, {
-            stock: state.menuItems.find((m) => m.id === cartItem.id)!.stock - cartItem.quantity,
-          });
+          const menuItem = state.menuItems.find((m) => m.id === cartItem.id);
+          if (menuItem) {
+            state.updateMenuItem(cartItem.id, {
+              stock: menuItem.stock - cartItem.quantity,
+            });
+          }
         });
 
         set((s) => ({ 
@@ -220,17 +207,9 @@ export const usePOSStore = create<POSState>()(
 // Function to reset store for new user
 export const resetPOSStore = () => {
   usePOSStore.setState({
-    brand: {
-      name: 'My Restaurant',
-      currency: '₹',
-      taxRate: 5,
-      enableGST: true,
-      cgstRate: 2.5,
-      sgstRate: 2.5,
-      upiId: '',
-    },
-    menuItems: defaultMenuItems,
-    categories: defaultCategories,
+    brand: defaultBrand,
+    menuItems: [],
+    categories: [],
     cart: [],
     discount: 0,
     discountType: 'percentage',
