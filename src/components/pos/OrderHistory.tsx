@@ -280,6 +280,21 @@ export function OrderHistory() {
                               {order.items.length} items
                             </p>
                           </div>
+
+                          <Button
+                            variant="outline"
+                            size="icon-sm"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              printReceipt(order);
+                            }}
+                            aria-label={`Print receipt for ${order.id}`}
+                            title="Print receipt"
+                          >
+                            <Printer className="w-4 h-4" />
+                          </Button>
+
                           {isExpanded ? (
                             <ChevronUp className="w-5 h-5 text-muted-foreground" />
                           ) : (
