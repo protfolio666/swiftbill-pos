@@ -45,7 +45,9 @@ export function Cart() {
 
   const printReceipt = (order: Order) => {
     const orderDate = new Date(order.date);
-    const hasGST = order.cgst > 0 || order.sgst > 0;
+    const hasGST = (order.cgst ?? 0) > 0 || (order.sgst ?? 0) > 0;
+    const taxableAmount = order.subtotal - (order.discount ?? 0);
+    const totalTax = hasGST ? (order.cgst ?? 0) + (order.sgst ?? 0) : (order.total - taxableAmount);
 
     const receiptContent = `
       <!DOCTYPE html>
@@ -68,9 +70,11 @@ export function Cart() {
           .totals { margin-top: 10px; }
           .total-row { display: flex; justify-content: space-between; margin: 5px 0; font-size: 14px; }
           .discount { color: #16a34a; }
+          .tax-section { background: #f5f5f5; padding: 8px; margin: 10px 0; border-radius: 4px; }
+          .tax-header { font-weight: bold; margin-bottom: 5px; font-size: 12px; text-transform: uppercase; }
           .grand-total { font-weight: bold; font-size: 18px; margin-top: 10px; border-top: 2px solid #000; padding-top: 10px; }
           .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
-          @media print { body { padding: 0; } }
+          @media print { body { padding: 0; } .tax-section { background: #f5f5f5; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
         </style>
       </head>
       <body>
@@ -94,29 +98,40 @@ export function Cart() {
             <span>Subtotal</span>
             <span>${brand.currency}${order.subtotal.toFixed(2)}</span>
           </div>
-          ${order.discount > 0 ? `
+          ${(order.discount ?? 0) > 0 ? `
             <div class="total-row discount">
               <span>Discount</span>
               <span>-${brand.currency}${order.discount.toFixed(2)}</span>
             </div>
           ` : ''}
-          ${hasGST ? `
-            <div class="total-row">
-              <span>CGST (${brand.cgstRate ?? 2.5}%)</span>
-              <span>${brand.currency}${order.cgst.toFixed(2)}</span>
+          <div class="total-row">
+            <span>Taxable Amount</span>
+            <span>${brand.currency}${taxableAmount.toFixed(2)}</span>
+          </div>
+          <div class="tax-section">
+            <div class="tax-header">Tax Details</div>
+            ${hasGST ? `
+              <div class="total-row">
+                <span>CGST @ ${brand.cgstRate ?? 2.5}%</span>
+                <span>${brand.currency}${(order.cgst ?? 0).toFixed(2)}</span>
+              </div>
+              <div class="total-row">
+                <span>SGST @ ${brand.sgstRate ?? 2.5}%</span>
+                <span>${brand.currency}${(order.sgst ?? 0).toFixed(2)}</span>
+              </div>
+            ` : `
+              <div class="total-row">
+                <span>Tax @ ${brand.taxRate ?? 5}%</span>
+                <span>${brand.currency}${totalTax.toFixed(2)}</span>
+              </div>
+            `}
+            <div class="total-row" style="font-weight: bold; border-top: 1px dashed #ccc; padding-top: 5px; margin-top: 5px;">
+              <span>Total Tax</span>
+              <span>${brand.currency}${totalTax.toFixed(2)}</span>
             </div>
-            <div class="total-row">
-              <span>SGST (${brand.sgstRate ?? 2.5}%)</span>
-              <span>${brand.currency}${order.sgst.toFixed(2)}</span>
-            </div>
-          ` : `
-            <div class="total-row">
-              <span>Tax</span>
-              <span>${brand.currency}${(order.total - order.subtotal + order.discount).toFixed(2)}</span>
-            </div>
-          `}
+          </div>
           <div class="total-row grand-total">
-            <span>TOTAL</span>
+            <span>GRAND TOTAL</span>
             <span>${brand.currency}${order.total.toFixed(2)}</span>
           </div>
         </div>
@@ -126,6 +141,7 @@ export function Cart() {
       </body>
       </html>
     `;
+
 
     const printWindow = window.open('', '_blank', 'width=350,height=600');
     if (printWindow) {
