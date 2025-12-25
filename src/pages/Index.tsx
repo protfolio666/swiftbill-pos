@@ -57,12 +57,11 @@ const IndexContent = () => {
   );
 };
 
-const Index = () => {
-  return (
-    <NeonProvider>
-      <IndexContent />
-    </NeonProvider>
-  );
-};
+// Main Index component wraps content with NeonProvider
+const Index = () => (
+  <NeonProvider>
+    <IndexContent />
+  </NeonProvider>
+);
 
 export default Index;
