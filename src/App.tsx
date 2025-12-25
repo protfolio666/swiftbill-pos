@@ -14,7 +14,7 @@ const queryClient = new QueryClient();
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, hasActiveSubscription } = useAuth();
 
   if (isLoading) {
     return (
@@ -28,6 +28,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (!user) {
+    return <Navigate to="/auth" replace />;
+  }
+
+  if (!hasActiveSubscription) {
     return <Navigate to="/auth" replace />;
   }
 

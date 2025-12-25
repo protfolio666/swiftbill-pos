@@ -13,15 +13,26 @@ interface Profile {
   logo_url: string | null;
 }
 
+interface Subscription {
+  id: string;
+  user_id: string;
+  plan_name: string;
+  status: string;
+  valid_until: string | null;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
+  subscription: Subscription | null;
+  hasActiveSubscription: boolean;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, restaurantName: string, ownerName: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  refreshSubscription: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -30,6 +41,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
@@ -44,26 +57,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const fetchSubscription = async (userId: string) => {
+    try {
+      const response = await supabase.functions.invoke('razorpay', {
+        body: { action: 'check-subscription', data: { userId } }
+      });
+      
+      if (response.data?.success) {
+        setHasActiveSubscription(response.data.hasActiveSubscription);
+        setSubscription(response.data.subscription || null);
+      }
+    } catch (error) {
+      console.error('Error fetching subscription:', error);
+    }
+  };
+
   const refreshProfile = async () => {
     if (user) {
       await fetchProfile(user.id);
     }
   };
 
+  const refreshSubscription = async () => {
+    if (user) {
+      await fetchSubscription(user.id);
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Defer profile fetch with setTimeout
+        // Defer profile and subscription fetch with setTimeout
         if (session?.user) {
           setTimeout(() => {
             fetchProfile(session.user.id);
+            fetchSubscription(session.user.id);
           }, 0);
         } else {
           setProfile(null);
+          setSubscription(null);
+          setHasActiveSubscription(false);
         }
         setIsLoading(false);
       }
@@ -75,11 +112,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchProfile(session.user.id);
+        fetchSubscription(session.user.id);
       }
       setIsLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => authSub.unsubscribe();
   }, []);
 
   const signIn = async (email: string, password: string) => {
@@ -110,6 +148,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     await supabase.auth.signOut();
     setProfile(null);
+    setSubscription(null);
+    setHasActiveSubscription(false);
   };
 
   return (
@@ -117,11 +157,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       user,
       session,
       profile,
+      subscription,
+      hasActiveSubscription,
       isLoading,
       signIn,
       signUp,
       signOut,
       refreshProfile,
+      refreshSubscription,
     }}>
       {children}
     </AuthContext.Provider>
