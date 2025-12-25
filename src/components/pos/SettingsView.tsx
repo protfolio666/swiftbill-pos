@@ -221,6 +221,9 @@ export function SettingsView() {
     if (subscription.plan_name === 'trial') {
       return <Badge className="bg-amber-500">Trial</Badge>;
     }
+    if (subscription.plan_name === 'lifetime') {
+      return <Badge className="bg-purple-500">Lifetime</Badge>;
+    }
     if (subscription.plan_name === 'monthly') {
       return <Badge className="bg-blue-500">Monthly</Badge>;
     }
@@ -266,7 +269,9 @@ export function SettingsView() {
           {subscription?.valid_until && (
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Valid Until</span>
-              <span className="font-medium">{format(new Date(subscription.valid_until), 'MMM dd, yyyy')}</span>
+              <span className="font-medium">
+                {subscription.plan_name === 'lifetime' ? 'Forever' : format(new Date(subscription.valid_until), 'MMM dd, yyyy')}
+              </span>
             </div>
           )}
           {isTrialActive && (
@@ -280,7 +285,7 @@ export function SettingsView() {
         </div>
 
         {/* Upgrade Options */}
-        {(isTrialActive || !hasActiveSubscription || subscription?.plan_name === 'trial') && (
+        {(isTrialActive || !hasActiveSubscription || subscription?.plan_name === 'trial') && subscription?.plan_name !== 'lifetime' && (
           <div className="space-y-4">
             <h3 className="font-medium text-foreground">Upgrade Your Plan</h3>
             <div className="grid gap-4">
@@ -344,7 +349,10 @@ export function SettingsView() {
           <div className="p-4 bg-green-500/10 rounded-xl flex items-center gap-3">
             <Check className="h-5 w-5 text-green-500" />
             <span className="text-green-600 dark:text-green-400">
-              You're on the <strong className="capitalize">{subscription?.plan_name}</strong> plan. Thank you for your support!
+              {subscription?.plan_name === 'lifetime' 
+                ? "You have a Lifetime subscription. Thank you!"
+                : <>You're on the <strong className="capitalize">{subscription?.plan_name}</strong> plan. Thank you for your support!</>
+              }
             </span>
           </div>
         )}

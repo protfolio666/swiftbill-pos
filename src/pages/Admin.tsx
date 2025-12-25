@@ -92,13 +92,21 @@ const Admin = () => {
 
   const handleUpdateSubscription = async (userId: string) => {
     try {
-      const validUntil = new Date();
-      if (editPlan === 'monthly') {
-        validUntil.setMonth(validUntil.getMonth() + 1);
-      } else if (editPlan === 'yearly') {
-        validUntil.setFullYear(validUntil.getFullYear() + 1);
-      } else if (editPlan === 'trial') {
-        validUntil.setDate(validUntil.getDate() + 7);
+      let validUntil: string | null = null;
+      
+      if (editPlan === 'lifetime') {
+        // Set to year 2099 for lifetime
+        validUntil = new Date('2099-12-31').toISOString();
+      } else {
+        const date = new Date();
+        if (editPlan === 'monthly') {
+          date.setMonth(date.getMonth() + 1);
+        } else if (editPlan === 'yearly') {
+          date.setFullYear(date.getFullYear() + 1);
+        } else if (editPlan === 'trial') {
+          date.setDate(date.getDate() + 7);
+        }
+        validUntil = date.toISOString();
       }
 
       const { error } = await supabase.functions.invoke('admin', {
@@ -108,7 +116,7 @@ const Admin = () => {
             userId, 
             planName: editPlan,
             status: editStatus,
-            validUntil: validUntil.toISOString()
+            validUntil
           }
         }
       });
@@ -147,6 +155,9 @@ const Admin = () => {
     
     if (subscription.status === 'cancelled') {
       return <Badge variant="destructive">Cancelled</Badge>;
+    }
+    if (subscription.plan_name === 'lifetime') {
+      return <Badge className="bg-purple-500">Lifetime</Badge>;
     }
     if (isExpired) {
       return <Badge variant="destructive">Expired</Badge>;
@@ -292,9 +303,11 @@ const Admin = () => {
                         </TableCell>
                         <TableCell>{getStatusBadge(userData.subscription)}</TableCell>
                         <TableCell>
-                          {userData.subscription?.valid_until 
-                            ? format(new Date(userData.subscription.valid_until), 'MMM dd, yyyy')
-                            : '-'}
+                          {userData.subscription?.plan_name === 'lifetime' 
+                            ? 'Forever'
+                            : userData.subscription?.valid_until 
+                              ? format(new Date(userData.subscription.valid_until), 'MMM dd, yyyy')
+                              : '-'}
                         </TableCell>
                         <TableCell>
                           {format(new Date(userData.created_at), 'MMM dd, yyyy')}
@@ -333,6 +346,7 @@ const Admin = () => {
                                         <SelectItem value="trial">Trial</SelectItem>
                                         <SelectItem value="monthly">Monthly</SelectItem>
                                         <SelectItem value="yearly">Yearly</SelectItem>
+                                        <SelectItem value="lifetime">Lifetime</SelectItem>
                                       </SelectContent>
                                     </Select>
                                   </div>
