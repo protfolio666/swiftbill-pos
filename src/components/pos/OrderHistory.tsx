@@ -62,8 +62,7 @@ export function OrderHistory() {
 
   const printReceipt = (order: Order) => {
     const orderDate = new Date(order.date);
-    const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const tax = order.total - subtotal;
+    const hasGST = order.cgst > 0 || order.sgst > 0;
 
     const receiptContent = `
       <!DOCTYPE html>
@@ -85,6 +84,7 @@ export function OrderHistory() {
           .divider { border-top: 1px dashed #000; margin: 15px 0; }
           .totals { margin-top: 10px; }
           .total-row { display: flex; justify-content: space-between; margin: 5px 0; font-size: 14px; }
+          .discount { color: #16a34a; }
           .grand-total { font-weight: bold; font-size: 18px; margin-top: 10px; border-top: 2px solid #000; padding-top: 10px; }
           .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
           @media print { body { padding: 0; } }
@@ -109,12 +109,29 @@ export function OrderHistory() {
         <div class="totals">
           <div class="total-row">
             <span>Subtotal</span>
-            <span>${brand.currency}${subtotal.toFixed(2)}</span>
+            <span>${brand.currency}${order.subtotal.toFixed(2)}</span>
           </div>
-          <div class="total-row">
-            <span>Tax (${brand.taxRate}%)</span>
-            <span>${brand.currency}${tax.toFixed(2)}</span>
-          </div>
+          ${order.discount > 0 ? `
+            <div class="total-row discount">
+              <span>Discount</span>
+              <span>-${brand.currency}${order.discount.toFixed(2)}</span>
+            </div>
+          ` : ''}
+          ${hasGST ? `
+            <div class="total-row">
+              <span>CGST (${brand.cgstRate}%)</span>
+              <span>${brand.currency}${order.cgst.toFixed(2)}</span>
+            </div>
+            <div class="total-row">
+              <span>SGST (${brand.sgstRate}%)</span>
+              <span>${brand.currency}${order.sgst.toFixed(2)}</span>
+            </div>
+          ` : `
+            <div class="total-row">
+              <span>Tax</span>
+              <span>${brand.currency}${(order.total - order.subtotal + order.discount).toFixed(2)}</span>
+            </div>
+          `}
           <div class="total-row grand-total">
             <span>TOTAL</span>
             <span>${brand.currency}${order.total.toFixed(2)}</span>
@@ -286,23 +303,52 @@ export function OrderHistory() {
                                 </span>
                               </div>
                             ))}
-                            <div className="border-t border-border pt-2 mt-2 flex justify-between items-center">
-                              <div className="flex justify-between flex-1 font-medium">
-                                <span>Total</span>
-                                <span className="text-primary">{brand.currency}{order.total.toFixed(2)}</span>
+                            <div className="border-t border-border pt-2 mt-2 space-y-1 text-sm">
+                              <div className="flex justify-between text-muted-foreground">
+                                <span>Subtotal</span>
+                                <span>{brand.currency}{order.subtotal.toFixed(2)}</span>
                               </div>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="ml-4"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  printReceipt(order);
-                                }}
-                              >
-                                <Printer className="w-4 h-4 mr-1" />
-                                Print
-                              </Button>
+                              {order.discount > 0 && (
+                                <div className="flex justify-between text-green-600">
+                                  <span>Discount</span>
+                                  <span>-{brand.currency}{order.discount.toFixed(2)}</span>
+                                </div>
+                              )}
+                              {(order.cgst > 0 || order.sgst > 0) ? (
+                                <>
+                                  <div className="flex justify-between text-muted-foreground">
+                                    <span>CGST ({brand.cgstRate}%)</span>
+                                    <span>{brand.currency}{order.cgst.toFixed(2)}</span>
+                                  </div>
+                                  <div className="flex justify-between text-muted-foreground">
+                                    <span>SGST ({brand.sgstRate}%)</span>
+                                    <span>{brand.currency}{order.sgst.toFixed(2)}</span>
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="flex justify-between text-muted-foreground">
+                                  <span>Tax</span>
+                                  <span>{brand.currency}{(order.total - order.subtotal + order.discount).toFixed(2)}</span>
+                                </div>
+                              )}
+                              <div className="flex justify-between items-center pt-2 border-t border-border">
+                                <div className="flex justify-between flex-1 font-medium">
+                                  <span>Total</span>
+                                  <span className="text-primary">{brand.currency}{order.total.toFixed(2)}</span>
+                                </div>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="ml-4"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    printReceipt(order);
+                                  }}
+                                >
+                                  <Printer className="w-4 h-4 mr-1" />
+                                  Print
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         </div>

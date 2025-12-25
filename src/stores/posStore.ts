@@ -25,6 +25,11 @@ interface POSState {
   updateCartQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
 
+  // Discount
+  discount: number;
+  discountType: 'percentage' | 'fixed';
+  setDiscount: (amount: number, type: 'percentage' | 'fixed') => void;
+
   // Orders
   orders: Order[];
   createOrder: () => Order | null;
@@ -55,6 +60,9 @@ export const usePOSStore = create<POSState>()(
         name: 'My Restaurant',
         currency: '₹',
         taxRate: 5,
+        enableGST: true,
+        cgstRate: 2.5,
+        sgstRate: 2.5,
       },
       setBrand: (brand) => set((state) => ({ brand: { ...state.brand, ...brand } })),
 
@@ -100,7 +108,11 @@ export const usePOSStore = create<POSState>()(
                   item.id === id ? { ...item, quantity } : item
                 ),
         })),
-      clearCart: () => set({ cart: [] }),
+      clearCart: () => set({ cart: [], discount: 0, discountType: 'percentage' }),
+
+      discount: 0,
+      discountType: 'percentage',
+      setDiscount: (amount, type) => set({ discount: amount, discountType: type }),
 
       orders: [],
       createOrder: () => {
@@ -111,12 +123,35 @@ export const usePOSStore = create<POSState>()(
           (sum, item) => sum + item.price * item.quantity,
           0
         );
-        const tax = subtotal * (state.brand.taxRate / 100);
-        const total = subtotal + tax;
+        
+        const discountAmount = state.discountType === 'percentage' 
+          ? subtotal * (state.discount / 100) 
+          : state.discount;
+        
+        const afterDiscount = subtotal - discountAmount;
+        
+        let cgst = 0;
+        let sgst = 0;
+        let tax = 0;
+        
+        if (state.brand.enableGST) {
+          cgst = afterDiscount * (state.brand.cgstRate / 100);
+          sgst = afterDiscount * (state.brand.sgstRate / 100);
+          tax = cgst + sgst;
+        } else {
+          tax = afterDiscount * (state.brand.taxRate / 100);
+        }
+        
+        const total = afterDiscount + tax;
 
         const order: Order = {
           id: `ORD-${Date.now()}`,
           items: [...state.cart],
+          subtotal,
+          discount: discountAmount,
+          discountType: state.discountType,
+          cgst,
+          sgst,
           total,
           date: new Date(),
           status: 'completed',
@@ -129,7 +164,7 @@ export const usePOSStore = create<POSState>()(
           });
         });
 
-        set((s) => ({ orders: [order, ...s.orders], cart: [] }));
+        set((s) => ({ orders: [order, ...s.orders], cart: [], discount: 0, discountType: 'percentage' }));
         return order;
       },
     }),
