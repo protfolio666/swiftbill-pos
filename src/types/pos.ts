@@ -11,6 +11,8 @@ export interface CartItem extends MenuItem {
   quantity: number;
 }
 
+export type OrderType = 'dine-in' | 'takeaway';
+
 export interface Order {
   id: string;
   items: CartItem[];
@@ -22,6 +24,8 @@ export interface Order {
   total: number;
   date: Date;
   status: 'pending' | 'completed' | 'cancelled';
+  orderType: OrderType;
+  tableNumber?: number;
 }
 
 export interface BrandSettings {

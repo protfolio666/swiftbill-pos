@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { MenuItem, CartItem, Order, BrandSettings, Category } from '@/types/pos';
+import { MenuItem, CartItem, Order, BrandSettings, Category, OrderType } from '@/types/pos';
 
 interface POSState {
   // Brand Settings
@@ -29,6 +29,12 @@ interface POSState {
   discount: number;
   discountType: 'percentage' | 'fixed';
   setDiscount: (amount: number, type: 'percentage' | 'fixed') => void;
+
+  // Order Options
+  orderType: OrderType;
+  tableNumber: number | null;
+  setOrderType: (type: OrderType) => void;
+  setTableNumber: (num: number | null) => void;
 
   // Orders
   orders: Order[];
@@ -108,11 +114,16 @@ export const usePOSStore = create<POSState>()(
                   item.id === id ? { ...item, quantity } : item
                 ),
         })),
-      clearCart: () => set({ cart: [], discount: 0, discountType: 'percentage' }),
+      clearCart: () => set({ cart: [], discount: 0, discountType: 'percentage', orderType: 'dine-in', tableNumber: null }),
 
       discount: 0,
       discountType: 'percentage',
       setDiscount: (amount, type) => set({ discount: amount, discountType: type }),
+
+      orderType: 'dine-in',
+      tableNumber: null,
+      setOrderType: (type) => set({ orderType: type }),
+      setTableNumber: (num) => set({ tableNumber: num }),
 
       orders: [],
       createOrder: () => {
@@ -155,6 +166,8 @@ export const usePOSStore = create<POSState>()(
           total,
           date: new Date(),
           status: 'completed',
+          orderType: state.orderType,
+          tableNumber: state.orderType === 'dine-in' ? state.tableNumber ?? undefined : undefined,
         };
 
         // Update stock
@@ -164,7 +177,14 @@ export const usePOSStore = create<POSState>()(
           });
         });
 
-        set((s) => ({ orders: [order, ...s.orders], cart: [], discount: 0, discountType: 'percentage' }));
+        set((s) => ({ 
+          orders: [order, ...s.orders], 
+          cart: [], 
+          discount: 0, 
+          discountType: 'percentage',
+          orderType: 'dine-in',
+          tableNumber: null,
+        }));
         return order;
       },
     }),
