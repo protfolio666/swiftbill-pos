@@ -218,11 +218,6 @@ export function OrderHistory() {
         </Card>
       </div>
 
-      {/* Sales Chart */}
-      <div className="mb-6">
-        <SalesChart />
-      </div>
-
       {/* Filter Buttons */}
       <div className="flex gap-2 mb-4">
         {(['all', 'today', 'week'] as const).map((f) => (
@@ -239,14 +234,14 @@ export function OrderHistory() {
       </div>
 
       {/* Orders List */}
-      <Card className="flex-1 border-0 pos-shadow overflow-hidden">
+      <Card className="border-0 pos-shadow overflow-hidden mb-6">
         <CardHeader className="border-b border-border bg-card">
           <CardTitle className="text-lg flex items-center gap-2">
             <Receipt className="w-5 h-5" />
             Orders ({filteredOrders.length})
           </CardTitle>
         </CardHeader>
-        <ScrollArea className="h-[calc(100vh-720px)] min-h-[200px]">
+        <ScrollArea className="h-[300px]">
           <CardContent className="p-0">
             {filteredOrders.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -367,6 +362,9 @@ export function OrderHistory() {
           </CardContent>
         </ScrollArea>
       </Card>
+
+      {/* Sales Chart */}
+      <SalesChart />
     </div>
   );
 }
