@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Minus, Plus, Trash2, Receipt, Percent, IndianRupee, Printer, UtensilsCrossed, ShoppingBag } from 'lucide-react';
 import { usePOSStore } from '@/stores/posStore';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,14 @@ import { toast } from 'sonner';
 import { Order } from '@/types/pos';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNeon } from '@/contexts/NeonContext';
+import QRCode from 'qrcode';
+
+// Generate UPI payment link
+const generateUpiLink = (upiId: string, name: string, amount: number, orderId: string) => {
+  const encodedName = encodeURIComponent(name);
+  const note = encodeURIComponent(`Payment for ${orderId}`);
+  return `upi://pay?pa=${upiId}&pn=${encodedName}&am=${amount.toFixed(2)}&cu=INR&tn=${note}`;
+};
 
 export function Cart() {
   const { 
@@ -50,11 +58,26 @@ export function Cart() {
     setDiscount(parseFloat(discountInput) || 0, newType);
   };
 
-  const printReceipt = (order: Order) => {
+  const printReceipt = async (order: Order) => {
     const orderDate = new Date(order.date);
     const hasGST = (order.cgst ?? 0) > 0 || (order.sgst ?? 0) > 0;
     const taxableAmount = order.subtotal - (order.discount ?? 0);
     const totalTax = hasGST ? (order.cgst ?? 0) + (order.sgst ?? 0) : (order.total - taxableAmount);
+
+    // Generate UPI QR code if UPI ID is configured
+    let qrCodeDataUrl = '';
+    if (brand.upiId) {
+      try {
+        const upiLink = generateUpiLink(brand.upiId, brand.name, order.total, order.id);
+        qrCodeDataUrl = await QRCode.toDataURL(upiLink, {
+          width: 150,
+          margin: 1,
+          color: { dark: '#000000', light: '#ffffff' }
+        });
+      } catch (err) {
+        console.error('Failed to generate QR code:', err);
+      }
+    }
 
     const receiptContent = `
       <!DOCTYPE html>
@@ -83,6 +106,11 @@ export function Cart() {
           .tax-section { background: #f5f5f5; padding: 8px; margin: 10px 0; border-radius: 4px; }
           .tax-header { font-weight: bold; margin-bottom: 5px; font-size: 12px; text-transform: uppercase; }
           .grand-total { font-weight: bold; font-size: 18px; margin-top: 10px; border-top: 2px solid #000; padding-top: 10px; }
+          .upi-section { text-align: center; margin-top: 20px; padding-top: 15px; border-top: 2px dashed #000; }
+          .upi-title { font-weight: bold; font-size: 14px; margin-bottom: 10px; }
+          .upi-qr { margin: 10px auto; }
+          .upi-id { font-size: 11px; color: #666; margin-top: 5px; word-break: break-all; }
+          .upi-amount { font-size: 16px; font-weight: bold; color: #16a34a; margin-top: 5px; }
           .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
           @media print { body { padding: 0; } .tax-section { background: #f5f5f5; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
         </style>
@@ -150,6 +178,14 @@ export function Cart() {
             <span>${brand.currency}${order.total.toFixed(2)}</span>
           </div>
         </div>
+        ${qrCodeDataUrl ? `
+          <div class="upi-section">
+            <div class="upi-title">📱 Scan to Pay with UPI</div>
+            <img class="upi-qr" src="${qrCodeDataUrl}" alt="UPI QR Code" style="width: 150px; height: 150px;" />
+            <div class="upi-amount">${brand.currency}${order.total.toFixed(2)}</div>
+            <div class="upi-id">UPI: ${brand.upiId}</div>
+          </div>
+        ` : ''}
         <div class="footer">
           <p>Thank you for your visit!</p>
         </div>

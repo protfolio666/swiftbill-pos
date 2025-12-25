@@ -36,6 +36,7 @@ export interface BrandSettings {
   enableGST: boolean;
   cgstRate: number;
   sgstRate: number;
+  upiId?: string;
 }
 
 export type Category = {
