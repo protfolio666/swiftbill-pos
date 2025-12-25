@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sidebar } from '@/components/pos/Sidebar';
 import { POSView } from '@/components/pos/POSView';
 import { MenuManager } from '@/components/pos/MenuManager';
@@ -14,7 +14,12 @@ import { Button } from '@/components/ui/button';
 const IndexContent = () => {
   const [activeTab, setActiveTab] = useState('pos');
   const { isLoading } = useNeon();
-  const { isTrialActive, trialDaysRemaining } = useAuth();
+  const { isTrialActive, trialDaysRemaining, subscription, refreshSubscription } = useAuth();
+
+  // Refresh subscription on mount to get latest data
+  useEffect(() => {
+    refreshSubscription();
+  }, []);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -51,8 +56,8 @@ const IndexContent = () => {
         <meta name="description" content="Lightweight POS system for restaurants. Generate bills, manage menu items, track inventory, and customize your brand." />
       </Helmet>
       <div className="flex h-screen bg-background overflow-hidden flex-col">
-        {/* Trial Banner */}
-        {isTrialActive && (
+        {/* Trial Banner - only show for trial plans, not for lifetime/paid subscriptions */}
+        {isTrialActive && subscription?.plan_name === 'trial' && (
           <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Clock className="h-4 w-4" />
