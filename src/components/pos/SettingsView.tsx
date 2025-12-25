@@ -12,11 +12,11 @@ export function SettingsView() {
   const [formData, setFormData] = useState({
     name: brand.name,
     currency: brand.currency,
-    taxRate: brand.taxRate.toString(),
+    taxRate: (brand.taxRate ?? 5).toString(),
     logo: brand.logo || '',
-    enableGST: brand.enableGST,
-    cgstRate: brand.cgstRate.toString(),
-    sgstRate: brand.sgstRate.toString(),
+    enableGST: brand.enableGST ?? true,
+    cgstRate: (brand.cgstRate ?? 2.5).toString(),
+    sgstRate: (brand.sgstRate ?? 2.5).toString(),
   });
 
   const handleSave = () => {
