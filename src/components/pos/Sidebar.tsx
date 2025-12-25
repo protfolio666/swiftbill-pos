@@ -6,9 +6,12 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  History
+  History,
+  LogOut
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
 import { usePOSStore } from '@/stores/posStore';
 
 interface SidebarProps {
@@ -27,6 +30,12 @@ const navItems = [
 export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const { brand } = usePOSStore();
+  const { signOut, profile } = useAuth();
+
+  const handleLogout = async () => {
+    await signOut();
+    toast.success('Logged out successfully');
+  };
 
   return (
     <aside
@@ -47,8 +56,8 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
           </div>
           {!collapsed && (
             <div className="animate-fade-in overflow-hidden">
-              <h1 className="font-bold text-foreground truncate">{brand.name}</h1>
-              <p className="text-xs text-muted-foreground">POS System</p>
+              <h1 className="font-bold text-foreground truncate">{profile?.restaurant_name || brand.name}</h1>
+              <p className="text-xs text-muted-foreground">{profile?.owner_name || 'POS System'}</p>
             </div>
           )}
         </div>
@@ -80,8 +89,15 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
         })}
       </nav>
 
-      {/* Collapse Toggle */}
-      <div className="p-3 border-t border-border">
+      {/* Logout and Collapse */}
+      <div className="p-3 border-t border-border space-y-1">
+        <button
+          onClick={handleLogout}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors"
+        >
+          <LogOut className="w-5 h-5 shrink-0" />
+          {!collapsed && <span className="text-sm font-medium">Logout</span>}
+        </button>
         <button
           onClick={() => setCollapsed(!collapsed)}
           className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-muted-foreground hover:bg-accent hover:text-accent-foreground transition-colors"
