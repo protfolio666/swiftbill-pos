@@ -255,8 +255,13 @@ export function Cart() {
           <span>${orderDate.toLocaleDateString()} ${orderDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
         </div>
         <div style="text-align: center; margin: 6px 0;">
-          <span class="order-type-badge">${order.orderType === 'dine-in' ? 'DINE-IN' : 'TAKEAWAY'}${order.orderType === 'dine-in' && order.tableNumber ? ` - Table ${order.tableNumber}` : ''}</span>
+          <span class="order-type-badge">${order.orderType === 'dine-in' ? 'DINE-IN' : 'TAKEAWAY'}</span>
         </div>
+        ${order.orderType === 'dine-in' && order.tableNumber ? `
+          <div style="text-align: center; margin: 8px 0; font-size: 16px; font-weight: bold; border: 2px solid #000; padding: 6px;">
+            TABLE NO: ${order.tableNumber}
+          </div>
+        ` : ''}
         
         <hr class="divider" />
         
