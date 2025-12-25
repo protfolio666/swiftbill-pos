@@ -200,6 +200,24 @@ export function useNeonSync() {
     }
   }, []);
 
+  // Save brand settings to Neon
+  const saveBrandSettings = useCallback(async (settings: { name: string; currency: string; logo?: string }) => {
+    try {
+      const currencyCode = settings.currency === '₹' ? 'INR' : settings.currency === '$' ? 'USD' : settings.currency;
+      await neonApi.updateBrandSettings({
+        business_name: settings.name,
+        logo_url: settings.logo || null,
+        currency: currencyCode,
+      });
+      toast.success('Settings saved to database');
+      return true;
+    } catch (error) {
+      console.error('Failed to save settings to Neon:', error);
+      toast.error('Failed to save settings to database');
+      return false;
+    }
+  }, []);
+
   useEffect(() => {
     syncFromNeon();
   }, []);
@@ -214,5 +232,6 @@ export function useNeonSync() {
     updateMenuItem,
     deleteMenuItem,
     saveOrder,
+    saveBrandSettings,
   };
 }

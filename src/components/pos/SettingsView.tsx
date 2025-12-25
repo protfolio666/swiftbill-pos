@@ -6,9 +6,12 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { toast } from 'sonner';
+import { useNeon } from '@/contexts/NeonContext';
 
 export function SettingsView() {
   const { brand, setBrand } = usePOSStore();
+  const { saveBrandSettings } = useNeon();
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: brand.name,
     currency: brand.currency,
@@ -19,7 +22,10 @@ export function SettingsView() {
     sgstRate: (brand.sgstRate ?? 2.5).toString(),
   });
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    setIsSaving(true);
+    
+    // Save to local store
     setBrand({
       name: formData.name,
       currency: formData.currency,
@@ -29,7 +35,15 @@ export function SettingsView() {
       cgstRate: parseFloat(formData.cgstRate) || 0,
       sgstRate: parseFloat(formData.sgstRate) || 0,
     });
-    toast.success('Settings saved successfully');
+
+    // Save to Neon DB
+    await saveBrandSettings({
+      name: formData.name,
+      currency: formData.currency,
+      logo: formData.logo || undefined,
+    });
+
+    setIsSaving(false);
   };
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -204,8 +218,8 @@ export function SettingsView() {
           </div>
         )}
 
-        <Button variant="pos" onClick={handleSave} className="w-full">
-          Save Settings
+        <Button variant="pos" onClick={handleSave} className="w-full" disabled={isSaving}>
+          {isSaving ? 'Saving...' : 'Save Settings'}
         </Button>
       </div>
 
