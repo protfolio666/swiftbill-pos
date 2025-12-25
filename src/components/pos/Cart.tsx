@@ -189,7 +189,7 @@ export function Cart() {
       </div>
 
       {/* Cart Items */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="min-h-[200px] max-h-[35vh] overflow-y-auto p-4 space-y-3">
         {cart.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full text-center py-10">
             <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-4">
@@ -246,7 +246,7 @@ export function Cart() {
       </div>
 
       {/* Cart Summary */}
-      <div className="border-t border-border p-4 space-y-3 bg-card">
+      <div className="border-t border-border p-4 space-y-3 bg-card flex-1 overflow-y-auto">
         {cart.length > 0 ? (
           <>
             {/* Order Type Selection */}
