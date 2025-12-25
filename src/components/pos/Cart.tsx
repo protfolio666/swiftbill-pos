@@ -79,78 +79,6 @@ export function Cart() {
       }
     }
 
-    // POS thermal printer style - 48 char width (80mm)
-    const W = 48;
-    const line = (char: string) => char.repeat(W);
-    const center = (text: string) => {
-      const pad = Math.max(0, Math.floor((W - text.length) / 2));
-      return ' '.repeat(pad) + text;
-    };
-    const leftRight = (left: string, right: string) => {
-      const space = W - left.length - right.length;
-      return left + ' '.repeat(Math.max(1, space)) + right;
-    };
-
-    const formatPrice = (amount: number) => `${brand.currency}${amount.toFixed(2)}`;
-
-    // Build receipt text
-    let receipt = '';
-    receipt += center(brand.name.toUpperCase()) + '\n';
-    receipt += line('=') + '\n';
-    receipt += center(order.id) + '\n';
-    receipt += center(orderDate.toLocaleDateString() + ' ' + orderDate.toLocaleTimeString()) + '\n';
-    receipt += center(order.orderType === 'dine-in' ? 'DINE-IN' : 'TAKEAWAY') + 
-               (order.orderType === 'dine-in' && order.tableNumber ? ` | Table ${order.tableNumber}` : '') + '\n';
-    receipt += line('-') + '\n';
-    
-    // Items header
-    receipt += leftRight('ITEM', 'QTY    AMOUNT') + '\n';
-    receipt += line('-') + '\n';
-    
-    // Items
-    order.items.forEach(item => {
-      const name = item.name.length > 28 ? item.name.substring(0, 25) + '...' : item.name;
-      const qty = item.quantity.toString().padStart(3);
-      const amount = formatPrice(item.price * item.quantity).padStart(10);
-      receipt += leftRight(name, qty + amount) + '\n';
-    });
-    
-    receipt += line('-') + '\n';
-    
-    // Totals
-    receipt += leftRight('Subtotal:', formatPrice(order.subtotal)) + '\n';
-    
-    if ((order.discount ?? 0) > 0) {
-      receipt += leftRight('Discount:', '-' + formatPrice(order.discount)) + '\n';
-    }
-    
-    receipt += leftRight('Taxable Amt:', formatPrice(taxableAmount)) + '\n';
-    
-    receipt += line('-') + '\n';
-    receipt += center('TAX DETAILS') + '\n';
-    
-    if (hasGST) {
-      receipt += leftRight(`CGST @ ${brand.cgstRate ?? 2.5}%:`, formatPrice(order.cgst ?? 0)) + '\n';
-      receipt += leftRight(`SGST @ ${brand.sgstRate ?? 2.5}%:`, formatPrice(order.sgst ?? 0)) + '\n';
-    } else {
-      receipt += leftRight(`Tax @ ${brand.taxRate ?? 5}%:`, formatPrice(totalTax)) + '\n';
-    }
-    receipt += leftRight('Total Tax:', formatPrice(totalTax)) + '\n';
-    
-    receipt += line('=') + '\n';
-    receipt += leftRight('GRAND TOTAL:', formatPrice(order.total)) + '\n';
-    receipt += line('=') + '\n';
-    
-    if (brand.upiId) {
-      receipt += '\n';
-      receipt += center('SCAN TO PAY') + '\n';
-      receipt += center('UPI: ' + brand.upiId) + '\n';
-    }
-    
-    receipt += '\n';
-    receipt += center('Thank you for your visit!') + '\n';
-    receipt += center('*****') + '\n';
-
     const receiptContent = `
       <!DOCTYPE html>
       <html>
@@ -161,54 +89,242 @@ export function Cart() {
           * { margin: 0; padding: 0; box-sizing: border-box; }
           body { 
             font-family: 'Courier New', 'Lucida Console', Monaco, monospace; 
-            font-size: 12px;
-            line-height: 1.3;
-            padding: 8px;
+            font-size: 11px;
+            line-height: 1.4;
+            padding: 10px 8px;
             width: 80mm;
             max-width: 80mm;
             background: #fff;
             color: #000;
           }
-          pre { 
-            white-space: pre-wrap; 
-            word-wrap: break-word;
-            font-family: inherit;
-            font-size: inherit;
-          }
-          .logo-section {
+          .header {
             text-align: center;
             margin-bottom: 8px;
           }
-          .logo-section img {
-            width: 60px;
-            height: 60px;
+          .logo {
+            width: 50px;
+            height: 50px;
             object-fit: contain;
+            margin-bottom: 4px;
+          }
+          .brand-name {
+            font-size: 18px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            margin-bottom: 2px;
+          }
+          .divider {
+            border: none;
+            border-top: 1px dashed #000;
+            margin: 6px 0;
+          }
+          .divider-double {
+            border: none;
+            border-top: 2px solid #000;
+            margin: 6px 0;
+          }
+          .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 2px 0;
+          }
+          .info-label {
+            font-weight: normal;
+          }
+          .order-type-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border: 1px solid #000;
+            font-weight: bold;
+            margin: 4px 0;
+          }
+          .items-header {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            margin: 4px 0;
+            padding-bottom: 2px;
+            border-bottom: 1px solid #000;
+          }
+          .item-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 4px 0;
+            align-items: flex-start;
+          }
+          .item-name {
+            flex: 1;
+            padding-right: 8px;
+          }
+          .item-qty {
+            width: 30px;
+            text-align: center;
+          }
+          .item-price {
+            width: 70px;
+            text-align: right;
+          }
+          .totals-section {
+            margin-top: 8px;
+          }
+          .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 3px 0;
+          }
+          .total-row.highlight {
+            font-weight: bold;
+            font-size: 13px;
+            padding: 4px 0;
+          }
+          .tax-box {
+            border: 1px dashed #000;
+            padding: 6px;
+            margin: 6px 0;
+          }
+          .tax-title {
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 4px;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+          }
+          .grand-total {
+            font-size: 14px;
+            font-weight: bold;
+            padding: 6px 0;
+            text-align: center;
+            background: #000;
+            color: #fff;
+            margin: 8px 0;
           }
           .qr-section {
             text-align: center;
             margin: 10px 0;
+            padding: 8px;
+            border: 1px dashed #000;
+          }
+          .qr-title {
+            font-weight: bold;
+            margin-bottom: 6px;
+            font-size: 10px;
+            letter-spacing: 1px;
           }
           .qr-section img {
-            width: 120px;
-            height: 120px;
+            width: 100px;
+            height: 100px;
+          }
+          .qr-upi {
+            font-size: 9px;
+            margin-top: 4px;
+            word-break: break-all;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 12px;
+            font-size: 10px;
+          }
+          .footer-stars {
+            letter-spacing: 4px;
+            margin-top: 4px;
           }
           @media print {
             body { padding: 0; }
+            .grand-total {
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
           }
         </style>
       </head>
       <body>
-        ${brand.logo ? `
-          <div class="logo-section">
-            <img src="${brand.logo}" alt="Logo" />
+        <div class="header">
+          ${brand.logo ? `<img class="logo" src="${brand.logo}" alt="Logo" />` : ''}
+          <div class="brand-name">${brand.name.toUpperCase()}</div>
+        </div>
+        
+        <hr class="divider" />
+        
+        <div class="info-row">
+          <span class="info-label">Slip:</span>
+          <span>${order.id}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Date:</span>
+          <span>${orderDate.toLocaleDateString()} ${orderDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+        </div>
+        <div style="text-align: center; margin: 6px 0;">
+          <span class="order-type-badge">${order.orderType === 'dine-in' ? 'DINE-IN' : 'TAKEAWAY'}${order.orderType === 'dine-in' && order.tableNumber ? ` - Table ${order.tableNumber}` : ''}</span>
+        </div>
+        
+        <hr class="divider" />
+        
+        <div class="items-header">
+          <span style="flex: 1;">Description</span>
+          <span style="width: 30px; text-align: center;">Qty</span>
+          <span style="width: 70px; text-align: right;">Amount</span>
+        </div>
+        
+        ${order.items.map(item => `
+          <div class="item-row">
+            <span class="item-name">${item.name}</span>
+            <span class="item-qty">${item.quantity}</span>
+            <span class="item-price">${brand.currency}${(item.price * item.quantity).toFixed(2)}</span>
           </div>
-        ` : ''}
-        <pre>${receipt}</pre>
+        `).join('')}
+        
+        <hr class="divider-double" />
+        
+        <div class="totals-section">
+          <div class="total-row">
+            <span>Subtotal</span>
+            <span>${brand.currency}${order.subtotal.toFixed(2)}</span>
+          </div>
+          ${(order.discount ?? 0) > 0 ? `
+            <div class="total-row" style="color: #16a34a;">
+              <span>Discount</span>
+              <span>-${brand.currency}${order.discount.toFixed(2)}</span>
+            </div>
+          ` : ''}
+        </div>
+        
+        <div class="tax-box">
+          <div class="tax-title">Tax Details</div>
+          ${hasGST ? `
+            <div class="total-row">
+              <span>CGST @ ${brand.cgstRate ?? 2.5}%</span>
+              <span>${brand.currency}${(order.cgst ?? 0).toFixed(2)}</span>
+            </div>
+            <div class="total-row">
+              <span>SGST @ ${brand.sgstRate ?? 2.5}%</span>
+              <span>${brand.currency}${(order.sgst ?? 0).toFixed(2)}</span>
+            </div>
+          ` : `
+            <div class="total-row">
+              <span>Tax @ ${brand.taxRate ?? 5}%</span>
+              <span>${brand.currency}${totalTax.toFixed(2)}</span>
+            </div>
+          `}
+        </div>
+        
+        <div class="grand-total">
+          TOTAL: ${brand.currency}${order.total.toFixed(2)}
+        </div>
+        
         ${qrCodeDataUrl ? `
           <div class="qr-section">
+            <div class="qr-title">SCAN TO PAY</div>
             <img src="${qrCodeDataUrl}" alt="UPI QR" />
+            <div class="qr-upi">UPI: ${brand.upiId}</div>
           </div>
         ` : ''}
+        
+        <div class="footer">
+          <div>Thank you for your visit!</div>
+          <div class="footer-stars">* * * * *</div>
+          <div style="margin-top: 4px;">Welcome again</div>
+        </div>
       </body>
       </html>
     `;
