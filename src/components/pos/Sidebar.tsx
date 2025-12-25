@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   ShoppingCart, 
   UtensilsCrossed, 
@@ -7,7 +8,8 @@ import {
   ChevronLeft,
   ChevronRight,
   History,
-  LogOut
+  LogOut,
+  Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,6 +20,8 @@ interface SidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
 }
+
+const ADMIN_EMAIL = 'bsnlsdp3600@gmail.com';
 
 const navItems = [
   { id: 'pos', label: 'POS', icon: ShoppingCart },
@@ -30,7 +34,10 @@ const navItems = [
 export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const { brand } = usePOSStore();
-  const { signOut, profile } = useAuth();
+  const { signOut, profile, user } = useAuth();
+  const navigate = useNavigate();
+
+  const isAdmin = user?.email === ADMIN_EMAIL;
 
   const handleLogout = async () => {
     await signOut();
@@ -40,7 +47,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "flex flex-col bg-card border-r border-border transition-all duration-300 h-screen",
+        "flex flex-col bg-card border-r border-border transition-all duration-300 h-full",
         collapsed ? "w-20" : "w-64"
       )}
     >
@@ -87,6 +94,19 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
             </button>
           );
         })}
+
+        {/* Admin Link - Only visible to admin */}
+        {isAdmin && (
+          <button
+            onClick={() => navigate('/admin')}
+            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 text-purple-500 hover:bg-purple-500/10"
+          >
+            <Shield className="w-5 h-5 shrink-0" />
+            {!collapsed && (
+              <span className="font-medium animate-fade-in">Admin</span>
+            )}
+          </button>
+        )}
       </nav>
 
       {/* Logout and Collapse */}
