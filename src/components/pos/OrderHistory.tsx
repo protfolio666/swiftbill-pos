@@ -157,7 +157,7 @@ export function OrderHistory() {
   };
 
   return (
-    <div className="h-full flex flex-col p-6 bg-muted/30">
+    <div className="h-full overflow-y-auto p-6 bg-muted/30">
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">Order History</h1>
@@ -218,30 +218,31 @@ export function OrderHistory() {
         </Card>
       </div>
 
-      {/* Filter Buttons */}
-      <div className="flex gap-2 mb-4">
-        {(['all', 'today', 'week'] as const).map((f) => (
-          <Button
-            key={f}
-            variant={filter === f ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setFilter(f)}
-            className={filter === f ? 'pos-gradient' : ''}
-          >
-            {f === 'all' ? 'All Orders' : f === 'today' ? 'Today' : 'This Week'}
-          </Button>
-        ))}
-      </div>
-
-      {/* Orders List */}
+      {/* Orders Section */}
       <Card className="border-0 pos-shadow overflow-hidden mb-6">
         <CardHeader className="border-b border-border bg-card">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Receipt className="w-5 h-5" />
-            Orders ({filteredOrders.length})
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Receipt className="w-5 h-5" />
+              Orders ({filteredOrders.length})
+            </CardTitle>
+            {/* Filter Buttons */}
+            <div className="flex gap-2">
+              {(['all', 'today', 'week'] as const).map((f) => (
+                <Button
+                  key={f}
+                  variant={filter === f ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setFilter(f)}
+                  className={filter === f ? 'pos-gradient' : ''}
+                >
+                  {f === 'all' ? 'All' : f === 'today' ? 'Today' : 'Week'}
+                </Button>
+              ))}
+            </div>
+          </div>
         </CardHeader>
-        <ScrollArea className="h-[300px]">
+        <ScrollArea className="h-[350px]">
           <CardContent className="p-0">
             {filteredOrders.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -256,11 +257,11 @@ export function OrderHistory() {
                   
                   return (
                     <div key={order.id} className="bg-card hover:bg-accent/50 transition-colors">
-                      <button
-                        onClick={() => toggleExpanded(order.id)}
-                        className="w-full p-4 flex items-center justify-between text-left"
-                      >
-                        <div className="flex items-center gap-4">
+                      <div className="w-full p-4 flex items-center justify-between">
+                        <button
+                          onClick={() => toggleExpanded(order.id)}
+                          className="flex items-center gap-4 text-left flex-1"
+                        >
                           <div className="w-10 h-10 rounded-lg pos-gradient flex items-center justify-center">
                             <DollarSign className="w-5 h-5 text-primary-foreground" />
                           </div>
@@ -270,8 +271,8 @@ export function OrderHistory() {
                               {format(orderDate, 'MMM dd, yyyy')} at {format(orderDate, 'hh:mm a')}
                             </p>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-4">
+                        </button>
+                        <div className="flex items-center gap-3">
                           <div className="text-right">
                             <p className="font-bold text-foreground">
                               {brand.currency}{order.total.toFixed(2)}
@@ -283,25 +284,23 @@ export function OrderHistory() {
 
                           <Button
                             variant="outline"
-                            size="icon-sm"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              printReceipt(order);
-                            }}
-                            aria-label={`Print receipt for ${order.id}`}
-                            title="Print receipt"
+                            size="sm"
+                            onClick={() => printReceipt(order)}
+                            className="gap-1"
                           >
                             <Printer className="w-4 h-4" />
+                            Print
                           </Button>
 
-                          {isExpanded ? (
-                            <ChevronUp className="w-5 h-5 text-muted-foreground" />
-                          ) : (
-                            <ChevronDown className="w-5 h-5 text-muted-foreground" />
-                          )}
+                          <button onClick={() => toggleExpanded(order.id)}>
+                            {isExpanded ? (
+                              <ChevronUp className="w-5 h-5 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                            )}
+                          </button>
                         </div>
-                      </button>
+                      </div>
                       
                       {isExpanded && (
                         <div className="px-4 pb-4 pt-0 animate-fade-in">
@@ -333,11 +332,11 @@ export function OrderHistory() {
                               {(order.cgst > 0 || order.sgst > 0) ? (
                                 <>
                                   <div className="flex justify-between text-muted-foreground">
-                                    <span>CGST ({brand.cgstRate}%)</span>
+                                    <span>CGST ({brand.cgstRate ?? 2.5}%)</span>
                                     <span>{brand.currency}{order.cgst.toFixed(2)}</span>
                                   </div>
                                   <div className="flex justify-between text-muted-foreground">
-                                    <span>SGST ({brand.sgstRate}%)</span>
+                                    <span>SGST ({brand.sgstRate ?? 2.5}%)</span>
                                     <span>{brand.currency}{order.sgst.toFixed(2)}</span>
                                   </div>
                                 </>
@@ -347,23 +346,9 @@ export function OrderHistory() {
                                   <span>{brand.currency}{(order.total - order.subtotal + order.discount).toFixed(2)}</span>
                                 </div>
                               )}
-                              <div className="flex justify-between items-center pt-2 border-t border-border">
-                                <div className="flex justify-between flex-1 font-medium">
-                                  <span>Total</span>
-                                  <span className="text-primary">{brand.currency}{order.total.toFixed(2)}</span>
-                                </div>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="ml-4"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    printReceipt(order);
-                                  }}
-                                >
-                                  <Printer className="w-4 h-4 mr-1" />
-                                  Print
-                                </Button>
+                              <div className="flex justify-between font-medium pt-2 border-t border-border">
+                                <span>Total</span>
+                                <span className="text-primary">{brand.currency}{order.total.toFixed(2)}</span>
                               </div>
                             </div>
                           </div>
