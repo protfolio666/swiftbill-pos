@@ -4,6 +4,7 @@ import { POSView } from '@/components/pos/POSView';
 import { MenuManager } from '@/components/pos/MenuManager';
 import { InventoryView } from '@/components/pos/InventoryView';
 import { SettingsView } from '@/components/pos/SettingsView';
+import { OrderHistory } from '@/components/pos/OrderHistory';
 import { Helmet } from 'react-helmet-async';
 
 const Index = () => {
@@ -13,6 +14,8 @@ const Index = () => {
     switch (activeTab) {
       case 'pos':
         return <POSView />;
+      case 'orders':
+        return <OrderHistory />;
       case 'menu':
         return <MenuManager />;
       case 'inventory':

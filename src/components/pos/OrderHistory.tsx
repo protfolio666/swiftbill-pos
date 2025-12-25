@@ -1,0 +1,226 @@
+import { useState, useMemo } from 'react';
+import { 
+  Calendar, 
+  Receipt, 
+  TrendingUp, 
+  ChevronDown, 
+  ChevronUp,
+  Clock,
+  DollarSign
+} from 'lucide-react';
+import { usePOSStore } from '@/stores/posStore';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { format, isToday, isThisWeek, startOfDay, startOfWeek, isSameDay } from 'date-fns';
+
+export function OrderHistory() {
+  const { orders, brand } = usePOSStore();
+  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  const [filter, setFilter] = useState<'all' | 'today' | 'week'>('all');
+
+  const filteredOrders = useMemo(() => {
+    return orders.filter((order) => {
+      const orderDate = new Date(order.date);
+      if (filter === 'today') return isToday(orderDate);
+      if (filter === 'week') return isThisWeek(orderDate, { weekStartsOn: 1 });
+      return true;
+    });
+  }, [orders, filter]);
+
+  const salesSummary = useMemo(() => {
+    const today = new Date();
+    const todayStart = startOfDay(today);
+    const weekStart = startOfWeek(today, { weekStartsOn: 1 });
+
+    const todayOrders = orders.filter((o) => isSameDay(new Date(o.date), todayStart));
+    const weekOrders = orders.filter((o) => new Date(o.date) >= weekStart);
+
+    return {
+      todaySales: todayOrders.reduce((sum, o) => sum + o.total, 0),
+      todayOrders: todayOrders.length,
+      weekSales: weekOrders.reduce((sum, o) => sum + o.total, 0),
+      weekOrders: weekOrders.length,
+      totalSales: orders.reduce((sum, o) => sum + o.total, 0),
+      totalOrders: orders.length,
+    };
+  }, [orders]);
+
+  const toggleExpanded = (orderId: string) => {
+    setExpandedOrders((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) {
+        next.delete(orderId);
+      } else {
+        next.add(orderId);
+      }
+      return next;
+    });
+  };
+
+  return (
+    <div className="h-full flex flex-col p-6 bg-muted/30">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-foreground">Order History</h1>
+        <p className="text-muted-foreground">View completed orders and sales summary</p>
+      </div>
+
+      {/* Sales Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <Card className="border-0 pos-shadow">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Today's Sales
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground">
+              {brand.currency}{salesSummary.todaySales.toFixed(2)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {salesSummary.todayOrders} orders
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 pos-shadow">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <Calendar className="w-4 h-4" />
+              This Week
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-foreground">
+              {brand.currency}{salesSummary.weekSales.toFixed(2)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {salesSummary.weekOrders} orders
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-0 pos-shadow bg-gradient-to-br from-primary/10 to-primary/5">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+              <TrendingUp className="w-4 h-4" />
+              Total Sales
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-primary">
+              {brand.currency}{salesSummary.totalSales.toFixed(2)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {salesSummary.totalOrders} orders
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filter Buttons */}
+      <div className="flex gap-2 mb-4">
+        {(['all', 'today', 'week'] as const).map((f) => (
+          <Button
+            key={f}
+            variant={filter === f ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilter(f)}
+            className={filter === f ? 'pos-gradient' : ''}
+          >
+            {f === 'all' ? 'All Orders' : f === 'today' ? 'Today' : 'This Week'}
+          </Button>
+        ))}
+      </div>
+
+      {/* Orders List */}
+      <Card className="flex-1 border-0 pos-shadow overflow-hidden">
+        <CardHeader className="border-b border-border bg-card">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Receipt className="w-5 h-5" />
+            Orders ({filteredOrders.length})
+          </CardTitle>
+        </CardHeader>
+        <ScrollArea className="h-[calc(100vh-420px)]">
+          <CardContent className="p-0">
+            {filteredOrders.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                <Receipt className="w-12 h-12 mb-3 opacity-50" />
+                <p>No orders found</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {filteredOrders.map((order) => {
+                  const isExpanded = expandedOrders.has(order.id);
+                  const orderDate = new Date(order.date);
+                  
+                  return (
+                    <div key={order.id} className="bg-card hover:bg-accent/50 transition-colors">
+                      <button
+                        onClick={() => toggleExpanded(order.id)}
+                        className="w-full p-4 flex items-center justify-between text-left"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="w-10 h-10 rounded-lg pos-gradient flex items-center justify-center">
+                            <DollarSign className="w-5 h-5 text-primary-foreground" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-foreground">{order.id}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {format(orderDate, 'MMM dd, yyyy')} at {format(orderDate, 'hh:mm a')}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right">
+                            <p className="font-bold text-foreground">
+                              {brand.currency}{order.total.toFixed(2)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {order.items.length} items
+                            </p>
+                          </div>
+                          {isExpanded ? (
+                            <ChevronUp className="w-5 h-5 text-muted-foreground" />
+                          ) : (
+                            <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                          )}
+                        </div>
+                      </button>
+                      
+                      {isExpanded && (
+                        <div className="px-4 pb-4 pt-0 animate-fade-in">
+                          <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                            {order.items.map((item, index) => (
+                              <div 
+                                key={`${order.id}-${item.id}-${index}`}
+                                className="flex justify-between text-sm"
+                              >
+                                <span className="text-foreground">
+                                  {item.quantity}x {item.name}
+                                </span>
+                                <span className="text-muted-foreground">
+                                  {brand.currency}{(item.price * item.quantity).toFixed(2)}
+                                </span>
+                              </div>
+                            ))}
+                            <div className="border-t border-border pt-2 mt-2 flex justify-between font-medium">
+                              <span>Total</span>
+                              <span className="text-primary">{brand.currency}{order.total.toFixed(2)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </ScrollArea>
+      </Card>
+    </div>
+  );
+}
