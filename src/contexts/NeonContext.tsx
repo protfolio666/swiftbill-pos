@@ -12,6 +12,7 @@ interface NeonContextType {
   updateMenuItem: (id: string, item: Partial<MenuItem>, categoryId: number | null) => Promise<boolean>;
   deleteMenuItem: (id: string) => Promise<boolean>;
   saveOrder: (order: Order) => Promise<boolean>;
+  saveBrandSettings: (settings: { name: string; currency: string; logo?: string }) => Promise<boolean>;
 }
 
 const NeonContext = createContext<NeonContextType | null>(null);
