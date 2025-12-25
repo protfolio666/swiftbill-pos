@@ -1,13 +1,18 @@
 import { useState } from 'react';
-import { Minus, Plus, Trash2, Receipt, Percent, IndianRupee, Printer } from 'lucide-react';
+import { Minus, Plus, Trash2, Receipt, Percent, IndianRupee, Printer, UtensilsCrossed, ShoppingBag } from 'lucide-react';
 import { usePOSStore } from '@/stores/posStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { Order } from '@/types/pos';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export function Cart() {
-  const { cart, brand, discount, discountType, updateCartQuantity, removeFromCart, clearCart, createOrder, setDiscount } = usePOSStore();
+  const { 
+    cart, brand, discount, discountType, orderType, tableNumber,
+    updateCartQuantity, removeFromCart, clearCart, createOrder, 
+    setDiscount, setOrderType, setTableNumber 
+  } = usePOSStore();
   const [discountInput, setDiscountInput] = useState(discount.toString());
   const [localDiscountType, setLocalDiscountType] = useState<'percentage' | 'fixed'>(discountType);
   const [lastOrder, setLastOrder] = useState<Order | null>(null);
@@ -61,6 +66,9 @@ export function Cart() {
           .brand { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
           .order-id { font-size: 12px; color: #666; }
           .date { font-size: 12px; margin-top: 5px; }
+          .order-info { display: flex; justify-content: center; gap: 20px; margin-top: 8px; font-size: 14px; font-weight: bold; }
+          .order-type { background: #000; color: #fff; padding: 2px 8px; border-radius: 4px; }
+          .table-num { border: 1px solid #000; padding: 2px 8px; border-radius: 4px; }
           .items { margin: 15px 0; }
           .item { display: flex; justify-content: space-between; margin: 8px 0; font-size: 14px; }
           .item-name { flex: 1; }
@@ -82,6 +90,10 @@ export function Cart() {
           <div class="brand">${brand.name}</div>
           <div class="order-id">${order.id}</div>
           <div class="date">${orderDate.toLocaleDateString()} at ${orderDate.toLocaleTimeString()}</div>
+          <div class="order-info">
+            <span class="order-type">${order.orderType === 'dine-in' ? 'DINE-IN' : 'TAKEAWAY'}</span>
+            ${order.orderType === 'dine-in' && order.tableNumber ? `<span class="table-num">Table ${order.tableNumber}</span>` : ''}
+          </div>
         </div>
         <div class="items">
           ${order.items.map(item => `
@@ -237,6 +249,55 @@ export function Cart() {
       <div className="border-t border-border p-4 space-y-3 bg-card">
         {cart.length > 0 ? (
           <>
+            {/* Order Type Selection */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-muted-foreground">Order Type</label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant={orderType === 'dine-in' ? 'default' : 'outline'}
+                  size="sm"
+                  className={`flex-1 ${orderType === 'dine-in' ? 'pos-gradient' : ''}`}
+                  onClick={() => setOrderType('dine-in')}
+                >
+                  <UtensilsCrossed className="w-4 h-4 mr-1" />
+                  Dine-in
+                </Button>
+                <Button
+                  type="button"
+                  variant={orderType === 'takeaway' ? 'default' : 'outline'}
+                  size="sm"
+                  className={`flex-1 ${orderType === 'takeaway' ? 'pos-gradient' : ''}`}
+                  onClick={() => setOrderType('takeaway')}
+                >
+                  <ShoppingBag className="w-4 h-4 mr-1" />
+                  Takeaway
+                </Button>
+              </div>
+            </div>
+
+            {/* Table Number (only for dine-in) */}
+            {orderType === 'dine-in' && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">Table Number</label>
+                <Select 
+                  value={tableNumber?.toString() || ''} 
+                  onValueChange={(val) => setTableNumber(val ? parseInt(val) : null)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select table" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Array.from({ length: 20 }, (_, i) => i + 1).map((num) => (
+                      <SelectItem key={num} value={num.toString()}>
+                        Table {num}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+
             {/* Discount Input */}
             <div className="space-y-2">
               <label className="text-sm font-medium text-muted-foreground">Discount</label>

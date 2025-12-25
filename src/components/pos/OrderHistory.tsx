@@ -100,6 +100,8 @@ export function OrderHistory() {
       'Order ID',
       'Date',
       'Time',
+      'Order Type',
+      'Table No',
       'Items',
       'Item Details',
       'Subtotal',
@@ -123,6 +125,8 @@ export function OrderHistory() {
         order.id,
         format(orderDate, 'yyyy-MM-dd'),
         format(orderDate, 'HH:mm:ss'),
+        (order.orderType ?? 'dine-in') === 'dine-in' ? 'Dine-in' : 'Takeaway',
+        order.tableNumber ?? '-',
         order.items.length,
         `"${itemDetails}"`,
         order.subtotal.toFixed(2),
@@ -193,6 +197,9 @@ export function OrderHistory() {
           .brand { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
           .order-id { font-size: 12px; color: #666; }
           .date { font-size: 12px; margin-top: 5px; }
+          .order-info { display: flex; justify-content: center; gap: 20px; margin-top: 8px; font-size: 14px; font-weight: bold; }
+          .order-type { background: #000; color: #fff; padding: 2px 8px; border-radius: 4px; }
+          .table-num { border: 1px solid #000; padding: 2px 8px; border-radius: 4px; }
           .items { margin: 15px 0; }
           .item { display: flex; justify-content: space-between; margin: 8px 0; font-size: 14px; }
           .item-name { flex: 1; }
@@ -214,6 +221,10 @@ export function OrderHistory() {
           <div class="brand">${brand.name}</div>
           <div class="order-id">${order.id}</div>
           <div class="date">${format(orderDate, 'MMM dd, yyyy')} at ${format(orderDate, 'hh:mm a')}</div>
+          <div class="order-info">
+            <span class="order-type">${(order.orderType ?? 'dine-in') === 'dine-in' ? 'DINE-IN' : 'TAKEAWAY'}</span>
+            ${(order.orderType ?? 'dine-in') === 'dine-in' && order.tableNumber ? `<span class="table-num">Table ${order.tableNumber}</span>` : ''}
+          </div>
         </div>
         <div class="items">
           ${order.items.map(item => `
@@ -487,7 +498,17 @@ export function OrderHistory() {
                             <DollarSign className="w-5 h-5 text-primary-foreground" />
                           </div>
                           <div>
-                            <p className="font-medium text-foreground">{order.id}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-foreground">{order.id}</p>
+                              <span className={`text-xs px-2 py-0.5 rounded ${order.orderType === 'dine-in' ? 'bg-primary/20 text-primary' : 'bg-orange-500/20 text-orange-600'}`}>
+                                {order.orderType === 'dine-in' ? 'Dine-in' : 'Takeaway'}
+                              </span>
+                              {order.orderType === 'dine-in' && order.tableNumber && (
+                                <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                                  Table {order.tableNumber}
+                                </span>
+                              )}
+                            </div>
                             <p className="text-sm text-muted-foreground">
                               {format(orderDate, 'MMM dd, yyyy')} at {format(orderDate, 'hh:mm a')}
                             </p>
