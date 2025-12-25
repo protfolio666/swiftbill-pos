@@ -46,6 +46,67 @@ serve(async (req) => {
     let result;
 
     switch (action) {
+      // Users table - for syncing with Supabase Auth
+      case 'syncUser':
+        // Upsert a single user
+        const existingUser = await sql`SELECT id FROM users WHERE id = ${data.id} LIMIT 1`;
+        if (existingUser.length > 0) {
+          result = await sql`
+            UPDATE users 
+            SET email = ${data.email}, 
+                restaurant_name = ${data.restaurant_name || null}, 
+                owner_name = ${data.owner_name || null},
+                phone = ${data.phone || null},
+                address = ${data.address || null},
+                gstin = ${data.gstin || null},
+                logo_url = ${data.logo_url || null},
+                plan_name = ${data.plan_name || 'trial'},
+                subscription_status = ${data.subscription_status || 'pending'},
+                valid_until = ${data.valid_until || null},
+                updated_at = NOW()
+            WHERE id = ${data.id}
+            RETURNING *`;
+        } else {
+          result = await sql`
+            INSERT INTO users (id, email, restaurant_name, owner_name, phone, address, gstin, logo_url, plan_name, subscription_status, valid_until) 
+            VALUES (${data.id}, ${data.email}, ${data.restaurant_name || null}, ${data.owner_name || null}, ${data.phone || null}, ${data.address || null}, ${data.gstin || null}, ${data.logo_url || null}, ${data.plan_name || 'trial'}, ${data.subscription_status || 'pending'}, ${data.valid_until || null}) 
+            RETURNING *`;
+        }
+        break;
+
+      case 'syncUsers':
+        // Sync multiple users (admin bulk sync)
+        const users = data.users || [];
+        for (const user of users) {
+          const exists = await sql`SELECT id FROM users WHERE id = ${user.id} LIMIT 1`;
+          if (exists.length > 0) {
+            await sql`
+              UPDATE users 
+              SET email = ${user.email}, 
+                  restaurant_name = ${user.restaurant_name || null}, 
+                  owner_name = ${user.owner_name || null},
+                  phone = ${user.phone || null},
+                  address = ${user.address || null},
+                  gstin = ${user.gstin || null},
+                  logo_url = ${user.logo_url || null},
+                  plan_name = ${user.plan_name || 'trial'},
+                  subscription_status = ${user.subscription_status || 'pending'},
+                  valid_until = ${user.valid_until || null},
+                  updated_at = NOW()
+              WHERE id = ${user.id}`;
+          } else {
+            await sql`
+              INSERT INTO users (id, email, restaurant_name, owner_name, phone, address, gstin, logo_url, plan_name, subscription_status, valid_until) 
+              VALUES (${user.id}, ${user.email}, ${user.restaurant_name || null}, ${user.owner_name || null}, ${user.phone || null}, ${user.address || null}, ${user.gstin || null}, ${user.logo_url || null}, ${user.plan_name || 'trial'}, ${user.subscription_status || 'pending'}, ${user.valid_until || null})`;
+          }
+        }
+        result = await sql`SELECT * FROM users ORDER BY created_at DESC`;
+        break;
+
+      case 'getUsers':
+        result = await sql`SELECT * FROM users ORDER BY created_at DESC`;
+        break;
+
       // Categories - filtered by user_id
       case 'getCategories':
         result = await sql`SELECT * FROM categories WHERE user_id = ${userId} ORDER BY name`;

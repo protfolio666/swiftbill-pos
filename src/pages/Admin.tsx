@@ -62,6 +62,28 @@ const Admin = () => {
       if (error) throw error;
       if (data?.users) {
         setUsers(data.users);
+        
+        // Sync users to Neon DB
+        const usersToSync = data.users.map((u: UserData) => ({
+          id: u.id,
+          email: u.email,
+          restaurant_name: u.profile?.restaurant_name || null,
+          owner_name: u.profile?.owner_name || null,
+          plan_name: u.subscription?.plan_name || 'trial',
+          subscription_status: u.subscription?.status || 'pending',
+          valid_until: u.subscription?.valid_until || null
+        }));
+
+        // Sync to Neon in background
+        supabase.functions.invoke('neon-db', {
+          body: { action: 'syncUsers', data: { users: usersToSync } }
+        }).then(({ error: syncError }) => {
+          if (syncError) {
+            console.error('Failed to sync users to Neon:', syncError);
+          } else {
+            console.log('Users synced to Neon DB');
+          }
+        });
       }
     } catch (error) {
       console.error('Error fetching users:', error);
