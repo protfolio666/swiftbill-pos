@@ -8,7 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 import { Helmet } from 'react-helmet-async';
-import { UtensilsCrossed, Loader2, Mail, Lock, User, Store, Crown, Check, CreditCard } from 'lucide-react';
+import { UtensilsCrossed, Loader2, Mail, Lock, User, Store, Crown, Check, CreditCard, Gift } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { z } from 'zod';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -373,7 +374,15 @@ const Auth = () => {
         <meta name="description" content="Login to your Restaurant POS system to manage orders, menu, and inventory." />
       </Helmet>
       
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950 p-4">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950 p-4">
+        {/* Trial Alert Banner */}
+        <Alert className="w-full max-w-md mb-4 relative z-10 bg-red-500 border-red-600 text-white shadow-lg">
+          <Gift className="h-5 w-5 text-white" />
+          <AlertDescription className="text-white font-semibold text-center">
+            🎉 Sign up now and get <span className="underline">7 days FREE trial</span> - No credit card required!
+          </AlertDescription>
+        </Alert>
+
         {/* Background decorative elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-40 -right-40 w-80 h-80 bg-orange-200/30 dark:bg-orange-500/10 rounded-full blur-3xl" />
