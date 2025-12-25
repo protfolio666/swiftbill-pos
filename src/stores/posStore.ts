@@ -62,6 +62,22 @@ const defaultMenuItems: MenuItem[] = [
   { id: '8', name: 'Ice Cream', price: 5.99, category: 'Desserts', stock: 45 },
 ];
 
+// Get the current user ID from localStorage to make storage user-specific
+const getUserStorageKey = () => {
+  const userDataStr = localStorage.getItem('sb-nptoxwmbsxefhqjcxjhg-auth-token');
+  if (userDataStr) {
+    try {
+      const userData = JSON.parse(userDataStr);
+      if (userData?.user?.id) {
+        return `pos-storage-${userData.user.id}`;
+      }
+    } catch {
+      // If parsing fails, use default key
+    }
+  }
+  return 'pos-storage';
+};
+
 export const usePOSStore = create<POSState>()(
   persist(
     (set, get) => ({
@@ -196,7 +212,30 @@ export const usePOSStore = create<POSState>()(
       },
     }),
     {
-      name: 'pos-storage',
+      name: getUserStorageKey(),
     }
   )
 );
+
+// Function to reset store for new user
+export const resetPOSStore = () => {
+  usePOSStore.setState({
+    brand: {
+      name: 'My Restaurant',
+      currency: '₹',
+      taxRate: 5,
+      enableGST: true,
+      cgstRate: 2.5,
+      sgstRate: 2.5,
+      upiId: '',
+    },
+    menuItems: defaultMenuItems,
+    categories: defaultCategories,
+    cart: [],
+    discount: 0,
+    discountType: 'percentage',
+    orderType: 'dine-in',
+    tableNumber: null,
+    orders: [],
+  });
+};
