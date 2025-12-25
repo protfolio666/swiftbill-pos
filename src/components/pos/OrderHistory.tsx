@@ -6,13 +6,15 @@ import {
   ChevronDown, 
   ChevronUp,
   Clock,
-  DollarSign
+  DollarSign,
+  Printer
 } from 'lucide-react';
 import { usePOSStore } from '@/stores/posStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format, isToday, isThisWeek, startOfDay, startOfWeek, isSameDay } from 'date-fns';
+import { Order } from '@/types/pos';
 
 export function OrderHistory() {
   const { orders, brand } = usePOSStore();
@@ -56,6 +58,84 @@ export function OrderHistory() {
       }
       return next;
     });
+  };
+
+  const printReceipt = (order: Order) => {
+    const orderDate = new Date(order.date);
+    const subtotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const tax = order.total - subtotal;
+
+    const receiptContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Receipt - ${order.id}</title>
+        <style>
+          * { margin: 0; padding: 0; box-sizing: border-box; }
+          body { font-family: 'Courier New', monospace; padding: 20px; max-width: 300px; margin: 0 auto; }
+          .header { text-align: center; margin-bottom: 20px; border-bottom: 2px dashed #000; padding-bottom: 15px; }
+          .brand { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
+          .order-id { font-size: 12px; color: #666; }
+          .date { font-size: 12px; margin-top: 5px; }
+          .items { margin: 15px 0; }
+          .item { display: flex; justify-content: space-between; margin: 8px 0; font-size: 14px; }
+          .item-name { flex: 1; }
+          .item-qty { width: 30px; text-align: center; }
+          .item-price { width: 70px; text-align: right; }
+          .divider { border-top: 1px dashed #000; margin: 15px 0; }
+          .totals { margin-top: 10px; }
+          .total-row { display: flex; justify-content: space-between; margin: 5px 0; font-size: 14px; }
+          .grand-total { font-weight: bold; font-size: 18px; margin-top: 10px; border-top: 2px solid #000; padding-top: 10px; }
+          .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
+          @media print { body { padding: 0; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <div class="brand">${brand.name}</div>
+          <div class="order-id">${order.id}</div>
+          <div class="date">${format(orderDate, 'MMM dd, yyyy')} at ${format(orderDate, 'hh:mm a')}</div>
+        </div>
+        <div class="items">
+          ${order.items.map(item => `
+            <div class="item">
+              <span class="item-qty">${item.quantity}x</span>
+              <span class="item-name">${item.name}</span>
+              <span class="item-price">${brand.currency}${(item.price * item.quantity).toFixed(2)}</span>
+            </div>
+          `).join('')}
+        </div>
+        <div class="divider"></div>
+        <div class="totals">
+          <div class="total-row">
+            <span>Subtotal</span>
+            <span>${brand.currency}${subtotal.toFixed(2)}</span>
+          </div>
+          <div class="total-row">
+            <span>Tax (${brand.taxRate}%)</span>
+            <span>${brand.currency}${tax.toFixed(2)}</span>
+          </div>
+          <div class="total-row grand-total">
+            <span>TOTAL</span>
+            <span>${brand.currency}${order.total.toFixed(2)}</span>
+          </div>
+        </div>
+        <div class="footer">
+          <p>Thank you for your visit!</p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    const printWindow = window.open('', '_blank', 'width=350,height=600');
+    if (printWindow) {
+      printWindow.document.write(receiptContent);
+      printWindow.document.close();
+      printWindow.focus();
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
+    }
   };
 
   return (
@@ -206,9 +286,23 @@ export function OrderHistory() {
                                 </span>
                               </div>
                             ))}
-                            <div className="border-t border-border pt-2 mt-2 flex justify-between font-medium">
-                              <span>Total</span>
-                              <span className="text-primary">{brand.currency}{order.total.toFixed(2)}</span>
+                            <div className="border-t border-border pt-2 mt-2 flex justify-between items-center">
+                              <div className="flex justify-between flex-1 font-medium">
+                                <span>Total</span>
+                                <span className="text-primary">{brand.currency}{order.total.toFixed(2)}</span>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="ml-4"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  printReceipt(order);
+                                }}
+                              >
+                                <Printer className="w-4 h-4 mr-1" />
+                                Print
+                              </Button>
                             </div>
                           </div>
                         </div>
