@@ -72,6 +72,7 @@ export const usePOSStore = create<POSState>()(
         enableGST: true,
         cgstRate: 2.5,
         sgstRate: 2.5,
+        upiId: '',
       },
       setBrand: (brand) => set((state) => ({ brand: { ...state.brand, ...brand } })),
 
