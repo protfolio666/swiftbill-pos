@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Pencil, Trash2 } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { Plus, Pencil, Trash2, Upload, Download } from 'lucide-react';
 import { usePOSStore } from '@/stores/posStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,7 @@ import {
 import { toast } from 'sonner';
 import { MenuItem } from '@/types/pos';
 import { useNeon } from '@/contexts/NeonContext';
+import { parseMenuCSV, generateMenuCSVTemplate } from '@/utils/csvImport';
 
 const CATEGORY_ICONS = ['🍔', '🍕', '🍜', '🍣', '🥗', '🍰', '☕', '🥤', '🍺', '🍷'];
 
@@ -39,6 +40,8 @@ export function MenuManager() {
     category: '',
     stock: '',
   });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   const resetForm = () => {
     setFormData({ name: '', price: '', category: '', stock: '' });
@@ -126,21 +129,124 @@ export function MenuManager() {
     await deleteMenuItem(id);
   };
 
+  const handleCSVImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setIsImporting(true);
+    const reader = new FileReader();
+
+    reader.onload = async (event) => {
+      try {
+        const csvText = event.target?.result as string;
+        const parsedItems = parseMenuCSV(csvText);
+
+        if (parsedItems.length === 0) {
+          toast.error('No valid items found in CSV');
+          return;
+        }
+
+        let added = 0;
+        let updated = 0;
+
+        for (const item of parsedItems) {
+          // Check if category exists, if not create it
+          const existingCategory = categories.find(
+            c => c.name.toLowerCase() === item.category.toLowerCase()
+          );
+          
+          if (!existingCategory && item.category !== 'Uncategorized') {
+            await addCategoryRemote(item.category, '🍽️');
+          }
+
+          // Check if item already exists
+          const existingItem = menuItems.find(
+            m => m.name.toLowerCase() === item.name.toLowerCase()
+          );
+
+          const categoryId = existingCategory ? Number(existingCategory.id) : null;
+
+          if (existingItem) {
+            await updateMenuItem(existingItem.id, {
+              price: item.price,
+              category: item.category,
+              stock: item.stock,
+            }, categoryId);
+            updated++;
+          } else {
+            await addMenuItem({
+              name: item.name,
+              price: item.price,
+              category: item.category,
+              stock: item.stock,
+            }, categoryId);
+            added++;
+          }
+        }
+
+        toast.success(`CSV Import Complete`, {
+          description: `Added: ${added}, Updated: ${updated} items`,
+        });
+      } catch (err) {
+        toast.error('Failed to parse CSV', {
+          description: err instanceof Error ? err.message : 'Invalid format',
+        });
+      } finally {
+        setIsImporting(false);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+      }
+    };
+
+    reader.readAsText(file);
+  };
+
+  const downloadTemplate = () => {
+    const template = generateMenuCSVTemplate();
+    const blob = new Blob([template], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'menu_template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Template downloaded');
+  };
+
   return (
     <div className="p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Menu Management</h1>
           <p className="text-muted-foreground">Add, edit, or remove menu items</p>
         </div>
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button variant="pos" onClick={() => handleOpenDialog()}>
-              <Plus className="w-5 h-5 mr-2" />
-              Add Item
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2 flex-wrap">
+          <input
+            type="file"
+            accept=".csv"
+            ref={fileInputRef}
+            onChange={handleCSVImport}
+            className="hidden"
+          />
+          <Button variant="outline" size="sm" onClick={downloadTemplate}>
+            <Download className="w-4 h-4 mr-1" />
+            Template
+          </Button>
+          <Button 
+            variant="outline" 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isImporting}
+          >
+            <Upload className="w-4 h-4 mr-2" />
+            {isImporting ? 'Importing...' : 'Import CSV'}
+          </Button>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="pos" onClick={() => handleOpenDialog()}>
+                <Plus className="w-5 h-5 mr-2" />
+                Add Item
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
@@ -257,6 +363,7 @@ export function MenuManager() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Menu Items Table */}
