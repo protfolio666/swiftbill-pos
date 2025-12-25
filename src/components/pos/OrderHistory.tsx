@@ -70,6 +70,13 @@ export function OrderHistory() {
   };
 
   const exportToCSV = () => {
+    console.log('Export clicked, total orders:', orders.length);
+    
+    if (orders.length === 0) {
+      toast.error('No orders to export. Create some orders first!');
+      return;
+    }
+
     let ordersToExport = orders;
 
     // Filter by date range if both dates are selected
@@ -81,11 +88,11 @@ export function OrderHistory() {
           end: endOfDay(exportEndDate),
         });
       });
-    }
-
-    if (ordersToExport.length === 0) {
-      toast.error('No orders found in the selected date range');
-      return;
+      
+      if (ordersToExport.length === 0) {
+        toast.error('No orders found in the selected date range. Try different dates or clear the date filter.');
+        return;
+      }
     }
 
     // Create CSV headers
@@ -152,18 +159,18 @@ export function OrderHistory() {
 
     // Create and download file
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
+    const link = document.createElement('a');
+    link.href = url;
     
     const dateRange = exportStartDate && exportEndDate 
       ? `_${format(exportStartDate, 'yyyy-MM-dd')}_to_${format(exportEndDate, 'yyyy-MM-dd')}`
-      : `_all_orders`;
-    link.setAttribute('download', `orders_report${dateRange}.csv`);
-    link.style.visibility = 'hidden';
+      : '_all_orders';
+    link.download = `orders_report${dateRange}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 
     toast.success(`Exported ${ordersToExport.length} orders to CSV`);
   };
@@ -404,7 +411,7 @@ export function OrderHistory() {
               </Popover>
             </div>
 
-            <Button onClick={exportToCSV} className="pos-gradient gap-2">
+            <Button type="button" onClick={exportToCSV} className="pos-gradient gap-2">
               <Download className="w-4 h-4" />
               Export to CSV
             </Button>
