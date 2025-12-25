@@ -25,8 +25,8 @@ import { useNeon } from '@/contexts/NeonContext';
 const CATEGORY_ICONS = ['🍔', '🍕', '🍜', '🍣', '🥗', '🍰', '☕', '🥤', '🍺', '🍷'];
 
 export function MenuManager() {
-  const { menuItems, categories, brand, addCategory } = usePOSStore();
-  const { addMenuItem, updateMenuItem, deleteMenuItem } = useNeon();
+  const { menuItems, categories, brand } = usePOSStore();
+  const { addMenuItem, updateMenuItem, deleteMenuItem, addCategory: addCategoryRemote } = useNeon();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,31 +48,28 @@ export function MenuManager() {
     setNewCategoryIcon('🍔');
   };
 
-  const handleAddNewCategory = () => {
-    if (!newCategoryName.trim()) {
+  const handleAddNewCategory = async () => {
+    const name = newCategoryName.trim();
+    if (!name) {
       toast.error('Please enter a category name');
       return;
     }
-    
+
     const existingCategory = categories.find(
-      c => c.name.toLowerCase() === newCategoryName.trim().toLowerCase()
+      (c) => c.name.toLowerCase() === name.toLowerCase()
     );
-    
+
     if (existingCategory) {
       toast.error('Category already exists');
       return;
     }
-    
-    addCategory({
-      id: `cat-${Date.now()}`,
-      name: newCategoryName.trim(),
-      icon: newCategoryIcon,
-    });
-    
-    setFormData({ ...formData, category: newCategoryName.trim() });
+
+    const ok = await addCategoryRemote(name, newCategoryIcon);
+    if (!ok) return;
+
+    setFormData({ ...formData, category: name });
     setIsAddingCategory(false);
     setNewCategoryName('');
-    toast.success('Category added!');
   };
 
   const handleOpenDialog = (item?: MenuItem) => {
