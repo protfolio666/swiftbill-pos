@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Store, Upload, Receipt, QrCode, Crown, Clock, CreditCard, Check, Loader2 } from 'lucide-react';
 import { usePOSStore } from '@/stores/posStore';
@@ -96,6 +96,11 @@ export function SettingsView() {
     sgstRate: (brand.sgstRate ?? 2.5).toString(),
     upiId: brand.upiId || '',
   });
+
+  // Refresh subscription data when settings view loads
+  useEffect(() => {
+    refreshSubscription();
+  }, []);
 
   const handleSave = async () => {
     setIsSaving(true);
