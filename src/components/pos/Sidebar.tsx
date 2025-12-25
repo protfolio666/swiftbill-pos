@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { 
-  LayoutDashboard, 
   ShoppingCart, 
   UtensilsCrossed, 
   Package, 
   Settings,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  History
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { usePOSStore } from '@/stores/posStore';
@@ -18,6 +18,7 @@ interface SidebarProps {
 
 const navItems = [
   { id: 'pos', label: 'POS', icon: ShoppingCart },
+  { id: 'orders', label: 'Orders', icon: History },
   { id: 'menu', label: 'Menu', icon: UtensilsCrossed },
   { id: 'inventory', label: 'Inventory', icon: Package },
   { id: 'settings', label: 'Settings', icon: Settings },
