@@ -1,0 +1,232 @@
+import { useState } from 'react';
+import { Plus, Pencil, Trash2, X, Check } from 'lucide-react';
+import { usePOSStore } from '@/stores/posStore';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { toast } from 'sonner';
+import { MenuItem } from '@/types/pos';
+
+export function MenuManager() {
+  const { menuItems, categories, brand, addMenuItem, updateMenuItem, deleteMenuItem } = usePOSStore();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    price: '',
+    category: '',
+    stock: '',
+  });
+
+  const resetForm = () => {
+    setFormData({ name: '', price: '', category: '', stock: '' });
+    setEditingItem(null);
+  };
+
+  const handleOpenDialog = (item?: MenuItem) => {
+    if (item) {
+      setEditingItem(item);
+      setFormData({
+        name: item.name,
+        price: item.price.toString(),
+        category: item.category,
+        stock: item.stock.toString(),
+      });
+    } else {
+      resetForm();
+    }
+    setIsDialogOpen(true);
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.name || !formData.price || !formData.category) {
+      toast.error('Please fill all required fields');
+      return;
+    }
+
+    const itemData = {
+      name: formData.name,
+      price: parseFloat(formData.price),
+      category: formData.category,
+      stock: parseInt(formData.stock) || 0,
+    };
+
+    if (editingItem) {
+      updateMenuItem(editingItem.id, itemData);
+      toast.success('Item updated successfully');
+    } else {
+      addMenuItem({
+        id: `item-${Date.now()}`,
+        ...itemData,
+      });
+      toast.success('Item added successfully');
+    }
+
+    setIsDialogOpen(false);
+    resetForm();
+  };
+
+  const handleDelete = (id: string) => {
+    deleteMenuItem(id);
+    toast.success('Item deleted');
+  };
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Menu Management</h1>
+          <p className="text-muted-foreground">Add, edit, or remove menu items</p>
+        </div>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="pos" onClick={() => handleOpenDialog()}>
+              <Plus className="w-5 h-5 mr-2" />
+              Add Item
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editingItem ? 'Edit Item' : 'Add New Item'}</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Item Name</Label>
+                <Input
+                  id="name"
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  placeholder="e.g., Grilled Chicken"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="price">Price ({brand.currency})</Label>
+                  <Input
+                    id="price"
+                    type="number"
+                    step="0.01"
+                    value={formData.price}
+                    onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="stock">Stock</Label>
+                  <Input
+                    id="stock"
+                    type="number"
+                    value={formData.stock}
+                    onChange={(e) => setFormData({ ...formData, stock: e.target.value })}
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="category">Category</Label>
+                <Select
+                  value={formData.category}
+                  onValueChange={(value) => setFormData({ ...formData, category: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.name}>
+                        {cat.icon} {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-3 pt-4">
+                <Button type="button" variant="outline" className="flex-1" onClick={() => setIsDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" variant="pos" className="flex-1">
+                  {editingItem ? 'Update' : 'Add'} Item
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
+      </div>
+
+      {/* Menu Items Table */}
+      <div className="bg-card rounded-2xl border border-border overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-secondary/50">
+              <tr>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Item</th>
+                <th className="px-4 py-3 text-left text-sm font-semibold text-foreground">Category</th>
+                <th className="px-4 py-3 text-right text-sm font-semibold text-foreground">Price</th>
+                <th className="px-4 py-3 text-right text-sm font-semibold text-foreground">Stock</th>
+                <th className="px-4 py-3 text-right text-sm font-semibold text-foreground">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {menuItems.map((item) => (
+                <tr key={item.id} className="hover:bg-secondary/30 transition-colors">
+                  <td className="px-4 py-3">
+                    <span className="font-medium text-foreground">{item.name}</span>
+                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">{item.category}</td>
+                  <td className="px-4 py-3 text-right font-semibold text-foreground">
+                    {brand.currency}{item.price.toFixed(2)}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      item.stock <= 5 
+                        ? 'bg-destructive/10 text-destructive' 
+                        : 'bg-success/10 text-success'
+                    }`}>
+                      {item.stock}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        onClick={() => handleOpenDialog(item)}
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => handleDelete(item.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}

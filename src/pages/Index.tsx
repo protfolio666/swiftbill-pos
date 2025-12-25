@@ -1,13 +1,42 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { useState } from 'react';
+import { Sidebar } from '@/components/pos/Sidebar';
+import { POSView } from '@/components/pos/POSView';
+import { MenuManager } from '@/components/pos/MenuManager';
+import { InventoryView } from '@/components/pos/InventoryView';
+import { SettingsView } from '@/components/pos/SettingsView';
+import { Helmet } from 'react-helmet-async';
 
 const Index = () => {
+  const [activeTab, setActiveTab] = useState('pos');
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case 'pos':
+        return <POSView />;
+      case 'menu':
+        return <MenuManager />;
+      case 'inventory':
+        return <InventoryView />;
+      case 'settings':
+        return <SettingsView />;
+      default:
+        return <POSView />;
+    }
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <>
+      <Helmet>
+        <title>Restaurant POS - Fast & Simple Point of Sale</title>
+        <meta name="description" content="Lightweight POS system for restaurants. Generate bills, manage menu items, track inventory, and customize your brand." />
+      </Helmet>
+      <div className="flex h-screen bg-background overflow-hidden">
+        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+        <main className="flex-1 overflow-hidden">
+          {renderContent()}
+        </main>
       </div>
-    </div>
+    </>
   );
 };
 
