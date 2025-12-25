@@ -122,6 +122,31 @@ export function SettingsView() {
       logo: formData.logo || undefined,
     });
 
+    // Sync user profile to Neon DB
+    if (user) {
+      try {
+        await supabase.functions.invoke('neon-db', {
+          body: {
+            action: 'syncUser',
+            data: {
+              id: user.id,
+              email: user.email,
+              restaurant_name: formData.name,
+              owner_name: user.user_metadata?.owner_name || null,
+              plan_name: subscription?.plan_name || 'trial',
+              subscription_status: subscription?.status || 'pending',
+              valid_until: subscription?.valid_until || null,
+              logo_url: formData.logo || null,
+            }
+          }
+        });
+        console.log('User profile synced to Neon DB');
+      } catch (err) {
+        console.error('Failed to sync user to Neon:', err);
+      }
+    }
+
+    toast.success('Settings saved successfully');
     setIsSaving(false);
   };
 
