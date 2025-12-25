@@ -218,6 +218,7 @@ export function OrderHistory() {
       </head>
       <body>
         <div class="header">
+          ${brand.logo ? `<img src="${brand.logo}" alt="Logo" style="width: 60px; height: 60px; object-fit: contain; margin: 0 auto 10px;" />` : ''}
           <div class="brand">${brand.name}</div>
           <div class="order-id">${order.id}</div>
           <div class="date">${format(orderDate, 'MMM dd, yyyy')} at ${format(orderDate, 'hh:mm a')}</div>
