@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { format, isToday, isThisWeek, startOfDay, startOfWeek, isSameDay } from 'date-fns';
 import { Order } from '@/types/pos';
+import { SalesChart } from './SalesChart';
 
 export function OrderHistory() {
   const { orders, brand } = usePOSStore();
@@ -217,6 +218,11 @@ export function OrderHistory() {
         </Card>
       </div>
 
+      {/* Sales Chart */}
+      <div className="mb-6">
+        <SalesChart />
+      </div>
+
       {/* Filter Buttons */}
       <div className="flex gap-2 mb-4">
         {(['all', 'today', 'week'] as const).map((f) => (
@@ -240,7 +246,7 @@ export function OrderHistory() {
             Orders ({filteredOrders.length})
           </CardTitle>
         </CardHeader>
-        <ScrollArea className="h-[calc(100vh-420px)]">
+        <ScrollArea className="h-[calc(100vh-720px)] min-h-[200px]">
           <CardContent className="p-0">
             {filteredOrders.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
