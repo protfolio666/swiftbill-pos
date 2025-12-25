@@ -1,3 +1,5 @@
+import { supabase } from '@/integrations/supabase/client';
+
 const FUNCTION_URL = `https://nptoxwmbsxefhqjcxjhg.supabase.co/functions/v1/neon-db`;
 
 interface NeonResponse<T> {
@@ -5,12 +7,24 @@ interface NeonResponse<T> {
   error?: string;
 }
 
+async function getAuthToken(): Promise<string | null> {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token || null;
+}
+
 async function callNeonFunction<T>(action: string, data?: object): Promise<NeonResponse<T>> {
   try {
+    const token = await getAuthToken();
+    
+    if (!token) {
+      return { error: 'Not authenticated' };
+    }
+
     const response = await fetch(FUNCTION_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
       },
       body: JSON.stringify({ action, data }),
     });
@@ -59,6 +73,7 @@ export interface DbCategory {
   id: number;
   name: string;
   color: string;
+  user_id: string;
   created_at: string;
 }
 
@@ -69,6 +84,7 @@ export interface DbMenuItem {
   category_id: number | null;
   image_url: string | null;
   stock: number;
+  user_id: string;
   created_at: string;
 }
 
@@ -78,6 +94,7 @@ export interface DbOrder {
   total: number;
   payment_method: string;
   status: string;
+  user_id: string;
   created_at: string;
 }
 
@@ -87,6 +104,7 @@ export interface DbBrandSettings {
   logo_url: string | null;
   primary_color: string;
   currency: string;
+  user_id: string;
   created_at: string;
 }
 

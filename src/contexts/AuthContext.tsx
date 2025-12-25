@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-
+import { resetPOSStore } from '@/stores/posStore';
 interface Profile {
   id: string;
   user_id: string;
@@ -179,6 +179,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setHasActiveSubscription(false);
     setIsTrialActive(false);
     setTrialDaysRemaining(0);
+    // Reset POS store to clear user-specific data
+    resetPOSStore();
   };
 
   return (
