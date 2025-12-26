@@ -298,61 +298,55 @@ export function OrderHistory() {
   };
 
   return (
-    <div className="h-full overflow-y-auto p-6 bg-muted/30">
+    <div className="h-full overflow-y-auto p-3 md:p-6 bg-muted/30 pb-20 md:pb-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Order History</h1>
-        <p className="text-muted-foreground">View completed orders and sales summary</p>
+      <div className="mb-4 md:mb-6">
+        <h1 className="text-xl md:text-2xl font-bold text-foreground">Order History</h1>
+        <p className="text-sm text-muted-foreground">View completed orders and sales</p>
       </div>
 
       {/* Sales Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-3 gap-2 md:gap-4 mb-4 md:mb-6">
         <Card className="border-0 pos-shadow">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Today's Sales
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">
-              {brand.currency}{salesSummary.todaySales.toFixed(2)}
+          <CardContent className="p-3 md:p-4">
+            <div className="flex items-center gap-1.5 md:gap-2 text-muted-foreground mb-1">
+              <Clock className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              <span className="text-[10px] md:text-sm font-medium">Today</span>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <div className="text-base md:text-2xl font-bold text-foreground">
+              {brand.currency}{salesSummary.todaySales.toFixed(0)}
+            </div>
+            <p className="text-[10px] md:text-xs text-muted-foreground">
               {salesSummary.todayOrders} orders
             </p>
           </CardContent>
         </Card>
 
         <Card className="border-0 pos-shadow">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Calendar className="w-4 h-4" />
-              This Week
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-foreground">
-              {brand.currency}{salesSummary.weekSales.toFixed(2)}
+          <CardContent className="p-3 md:p-4">
+            <div className="flex items-center gap-1.5 md:gap-2 text-muted-foreground mb-1">
+              <Calendar className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              <span className="text-[10px] md:text-sm font-medium">Week</span>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <div className="text-base md:text-2xl font-bold text-foreground">
+              {brand.currency}{salesSummary.weekSales.toFixed(0)}
+            </div>
+            <p className="text-[10px] md:text-xs text-muted-foreground">
               {salesSummary.weekOrders} orders
             </p>
           </CardContent>
         </Card>
 
         <Card className="border-0 pos-shadow bg-gradient-to-br from-primary/10 to-primary/5">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <TrendingUp className="w-4 h-4" />
-              Total Sales
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-primary">
-              {brand.currency}{salesSummary.totalSales.toFixed(2)}
+          <CardContent className="p-3 md:p-4">
+            <div className="flex items-center gap-1.5 md:gap-2 text-muted-foreground mb-1">
+              <TrendingUp className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              <span className="text-[10px] md:text-sm font-medium">Total</span>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <div className="text-base md:text-2xl font-bold text-primary">
+              {brand.currency}{salesSummary.totalSales.toFixed(0)}
+            </div>
+            <p className="text-[10px] md:text-xs text-muted-foreground">
               {salesSummary.totalOrders} orders
             </p>
           </CardContent>

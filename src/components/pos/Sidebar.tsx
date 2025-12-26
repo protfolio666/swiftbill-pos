@@ -48,30 +48,30 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
     <aside
       className={cn(
         "flex flex-col bg-card border-r border-border transition-all duration-300 h-full",
-        collapsed ? "w-20" : "w-64"
+        collapsed ? "w-[72px]" : "w-56"
       )}
     >
       {/* Logo/Brand */}
-      <div className="p-4 border-b border-border">
+      <div className="p-3 border-b border-border">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl pos-gradient flex items-center justify-center text-primary-foreground font-bold text-lg shrink-0">
+          <div className="w-11 h-11 rounded-xl pos-gradient flex items-center justify-center text-primary-foreground font-bold text-lg shrink-0 pos-shadow">
             {brand.logo ? (
-              <img src={brand.logo} alt={brand.name} className="w-8 h-8 object-contain" />
+              <img src={brand.logo} alt={brand.name} className="w-9 h-9 object-contain rounded-lg" />
             ) : (
               brand.name.charAt(0)
             )}
           </div>
           {!collapsed && (
-            <div className="animate-fade-in overflow-hidden">
-              <h1 className="font-bold text-foreground truncate">{profile?.restaurant_name || brand.name}</h1>
-              <p className="text-xs text-muted-foreground">{profile?.owner_name || 'POS System'}</p>
+            <div className="animate-fade-in overflow-hidden flex-1 min-w-0">
+              <h1 className="font-bold text-foreground truncate text-sm">{profile?.restaurant_name || brand.name}</h1>
+              <p className="text-[10px] text-muted-foreground truncate">{profile?.owner_name || 'POS System'}</p>
             </div>
           )}
         </div>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 p-3 space-y-1">
+      <nav className="flex-1 p-2 space-y-1">
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
@@ -81,7 +81,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
               key={item.id}
               onClick={() => onTabChange(item.id)}
               className={cn(
-                "w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200",
+                "w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200",
                 isActive
                   ? "pos-gradient text-primary-foreground pos-shadow"
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
@@ -89,7 +89,7 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
             >
               <Icon className="w-5 h-5 shrink-0" />
               {!collapsed && (
-                <span className="font-medium animate-fade-in">{item.label}</span>
+                <span className="font-medium text-sm animate-fade-in">{item.label}</span>
               )}
             </button>
           );
@@ -99,18 +99,18 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
         {isAdmin && (
           <button
             onClick={() => navigate('/admin')}
-            className="w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-200 text-purple-500 hover:bg-purple-500/10"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 text-purple-500 hover:bg-purple-500/10"
           >
             <Shield className="w-5 h-5 shrink-0" />
             {!collapsed && (
-              <span className="font-medium animate-fade-in">Admin</span>
+              <span className="font-medium text-sm animate-fade-in">Admin</span>
             )}
           </button>
         )}
       </nav>
 
       {/* Logout and Collapse */}
-      <div className="p-3 border-t border-border space-y-1">
+      <div className="p-2 border-t border-border space-y-1">
         <button
           onClick={handleLogout}
           className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-red-500 hover:bg-red-500/10 transition-colors"
