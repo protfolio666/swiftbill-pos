@@ -3,11 +3,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.swiftbill.pos',
   appName: 'SwiftBill POS',
-  webDir: 'dist',
-  server: {
-    url: 'https://1f733076-bb81-450c-a248-bd8642e52987.lovableproject.com?forceHideBadge=true',
-    cleartext: true
-  }
+  webDir: 'dist'
 };
 
 export default config;
