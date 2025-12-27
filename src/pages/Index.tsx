@@ -10,14 +10,14 @@ import { OrderHistory } from '@/components/pos/OrderHistory';
 import { Helmet } from 'react-helmet-async';
 import { NeonProvider, useNeon } from '@/contexts/NeonContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, Clock, Crown } from 'lucide-react';
+import { Loader2, Clock, Crown, WifiOff, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePOSStore } from '@/stores/posStore';
 
 const IndexContent = () => {
   const [activeTab, setActiveTab] = useState('pos');
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
-  const { isLoading } = useNeon();
+  const { isLoading, isOnline, syncError, refresh } = useNeon();
   const { isTrialActive, trialDaysRemaining, subscription, refreshSubscription } = useAuth();
   const { brand } = usePOSStore();
 
@@ -43,21 +43,8 @@ const IndexContent = () => {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-16 h-16 rounded-2xl pos-gradient flex items-center justify-center pos-shadow-lg animate-pulse-soft">
-            <span className="text-2xl font-bold text-primary-foreground">
-              {brand.name.charAt(0)}
-            </span>
-          </div>
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">Loading...</p>
-        </div>
-      </div>
-    );
-  }
+  // Remove blocking loading screen - app loads from cache instantly
+  // Only show minimal loading indicator if explicitly refreshing
 
   return (
     <>
@@ -71,6 +58,35 @@ const IndexContent = () => {
       </Helmet>
       
       <div className="flex h-screen bg-background overflow-hidden flex-col">
+        {/* Offline Banner - subtle indicator */}
+        {!isOnline && (
+          <div className="bg-muted/80 text-muted-foreground px-3 py-1 flex items-center justify-center gap-2 shrink-0 text-xs">
+            <WifiOff className="h-3 w-3" />
+            <span>Offline mode</span>
+          </div>
+        )}
+
+        {/* Sync Error Banner */}
+        {syncError && isOnline && (
+          <div className="bg-amber-500/10 text-amber-600 dark:text-amber-400 px-3 py-1 flex items-center justify-center gap-2 shrink-0 text-xs">
+            <span>{syncError}</span>
+            <Button variant="ghost" size="sm" className="h-5 px-2 text-xs" onClick={refresh}>
+              <RefreshCw className="h-3 w-3 mr-1" />
+              Retry
+            </Button>
+          </div>
+        )}
+
+        {/* Background sync indicator - very subtle */}
+        {isLoading && isOnline && (
+          <div className="absolute top-2 right-2 z-50">
+            <div className="flex items-center gap-1.5 bg-background/80 backdrop-blur-sm rounded-full px-2 py-1 shadow-sm border">
+              <RefreshCw className="h-3 w-3 animate-spin text-primary" />
+              <span className="text-[10px] text-muted-foreground">Syncing...</span>
+            </div>
+          </div>
+        )}
+        
         {/* Trial Banner - only show for trial plans */}
         {isTrialActive && subscription?.plan_name === 'trial' && (
           <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-3 py-1.5 flex items-center justify-between shrink-0 safe-area-top">

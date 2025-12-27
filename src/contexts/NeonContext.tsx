@@ -5,6 +5,8 @@ import { MenuItem, Order } from '@/types/pos';
 interface NeonContextType {
   isLoading: boolean;
   isSynced: boolean;
+  isOnline: boolean;
+  syncError: string | null;
   refresh: () => Promise<void>;
   addCategory: (name: string, icon: string) => Promise<boolean>;
   deleteCategory: (id: string) => Promise<boolean>;
