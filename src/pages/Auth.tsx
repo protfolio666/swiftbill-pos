@@ -227,6 +227,8 @@ const Auth = () => {
                   razorpay_payment_id: response.razorpay_payment_id,
                   razorpay_signature: response.razorpay_signature,
                   userId: user.id,
+                  planName: plan.id,
+                  amount: plan.price,
                 }
               }
             });
