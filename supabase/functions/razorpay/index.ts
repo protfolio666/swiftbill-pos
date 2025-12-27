@@ -130,25 +130,25 @@ serve(async (req) => {
       const order = await orderResponse.json();
       console.log('Razorpay order created:', order);
 
-      // Update existing subscription or insert new one
+      // Check existing subscription - DON'T change status to pending, just store order_id
+      // This preserves trial status until payment is verified
       const { data: existingSub } = await supabase
         .from('subscriptions')
-        .select('id')
+        .select('*')
         .eq('user_id', userId)
         .maybeSingle();
 
       if (existingSub) {
+        // Only update order info, keep current status and plan intact
         await supabase
           .from('subscriptions')
           .update({
-            plan_name: planName,
             razorpay_order_id: order.id,
-            status: 'pending',
-            amount: amount,
-            currency: currency || 'INR',
+            // Store intended plan for after payment verification
           })
           .eq('user_id', userId);
       } else {
+        // Create new subscription with pending status only if none exists
         await supabase
           .from('subscriptions')
           .insert({
@@ -161,17 +161,20 @@ serve(async (req) => {
           });
       }
 
+      // Store the intended plan name in the response so it can be used during verification
       return new Response(JSON.stringify({ 
         success: true, 
         order,
-        key_id: RAZORPAY_KEY_ID 
+        key_id: RAZORPAY_KEY_ID,
+        intendedPlan: planName,
+        intendedAmount: amount
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
     if (action === 'verify-payment') {
-      const { razorpay_order_id, razorpay_payment_id, razorpay_signature, userId } = data;
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature, userId, planName, amount } = data;
       
       // Verify signature
       const crypto = await import("https://deno.land/std@0.168.0/crypto/mod.ts");
@@ -196,7 +199,7 @@ serve(async (req) => {
       console.log('Received signature:', razorpay_signature);
 
       if (generatedSignature === razorpay_signature) {
-        // Update subscription status - 1 year for paid plans
+        // Update subscription with new plan - 1 year for paid plans
         const validUntil = new Date();
         validUntil.setFullYear(validUntil.getFullYear() + 1);
 
@@ -206,9 +209,10 @@ serve(async (req) => {
             razorpay_payment_id,
             razorpay_signature,
             status: 'active',
+            plan_name: planName || 'yearly', // Update plan only on successful payment
+            amount: amount || 0,
             valid_until: validUntil.toISOString(),
           })
-          .eq('razorpay_order_id', razorpay_order_id)
           .eq('user_id', userId);
 
         if (updateError) {
@@ -216,7 +220,7 @@ serve(async (req) => {
           throw new Error('Failed to update subscription');
         }
 
-        console.log('Payment verified and subscription activated');
+        console.log('Payment verified and subscription activated with plan:', planName);
         return new Response(JSON.stringify({ success: true, message: 'Payment verified' }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
