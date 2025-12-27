@@ -135,23 +135,49 @@ serve(async (req) => {
       
       const { data: sub } = await supabase
         .from('subscriptions')
-        .select('valid_until')
+        .select('*')
         .eq('user_id', userId)
         .maybeSingle();
 
-      const currentEnd = sub?.valid_until ? new Date(sub.valid_until) : new Date();
+      // If subscription expired, use current date as base, otherwise extend from valid_until
+      const now = new Date();
+      let currentEnd = now;
+      if (sub?.valid_until) {
+        const validUntilDate = new Date(sub.valid_until);
+        // If not expired, extend from valid_until; if expired, extend from now
+        currentEnd = validUntilDate > now ? validUntilDate : now;
+      }
+      
       const newEnd = new Date(currentEnd);
       newEnd.setDate(newEnd.getDate() + days);
 
-      const { error } = await supabase
-        .from('subscriptions')
-        .update({
-          valid_until: newEnd.toISOString(),
-          status: 'active',
-        })
-        .eq('user_id', userId);
+      if (sub) {
+        // Update existing subscription
+        const { error } = await supabase
+          .from('subscriptions')
+          .update({
+            valid_until: newEnd.toISOString(),
+            status: 'active',
+            plan_name: sub.plan_name === 'trial' ? 'trial' : sub.plan_name,
+          })
+          .eq('user_id', userId);
 
-      if (error) throw error;
+        if (error) throw error;
+      } else {
+        // Create new trial subscription if none exists
+        const { error } = await supabase
+          .from('subscriptions')
+          .insert({
+            user_id: userId,
+            plan_name: 'trial',
+            status: 'active',
+            valid_until: newEnd.toISOString(),
+            amount: 0,
+            currency: 'INR',
+          });
+
+        if (error) throw error;
+      }
 
       return new Response(JSON.stringify({ success: true, newValidUntil: newEnd.toISOString() }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

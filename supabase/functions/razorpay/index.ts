@@ -232,11 +232,11 @@ serve(async (req) => {
     if (action === 'check-subscription') {
       const { userId } = data;
       
+      // Get the most recent subscription regardless of status
       const { data: subscription, error } = await supabase
         .from('subscriptions')
         .select('*')
         .eq('user_id', userId)
-        .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
@@ -249,7 +249,7 @@ serve(async (req) => {
       let isTrialActive = false;
       let trialDaysRemaining = 0;
 
-      if (subscription && subscription.valid_until) {
+      if (subscription && subscription.valid_until && subscription.status === 'active') {
         hasActiveSubscription = new Date(subscription.valid_until) > new Date();
         isTrialActive = subscription.plan_name === 'trial' && hasActiveSubscription;
         if (isTrialActive) {
