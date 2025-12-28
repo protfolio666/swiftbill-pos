@@ -233,6 +233,11 @@ export function useKOT() {
       return { error };
     }
 
+    // Sync deletion to Neon DB in background
+    supabase.functions.invoke('neon-db', {
+      body: { action: 'deleteStaff', data: { staffId } }
+    }).catch(err => console.error('Neon sync delete staff error:', err));
+
     toast.success('Staff removed');
     await fetchStaffList();
     return { error: null };

@@ -175,6 +175,13 @@ serve(async (req) => {
         result = await sql`SELECT * FROM staff_members ORDER BY created_at DESC`;
         break;
 
+      case 'deleteStaff':
+        // Delete a single staff member from Neon
+        console.log('Deleting staff from Neon:', data.staffId);
+        result = await sql`DELETE FROM staff_members WHERE id = ${data.staffId} RETURNING *`;
+        console.log('Staff deleted from Neon:', result);
+        break;
+
       case 'getUsers':
         result = await sql`SELECT * FROM users ORDER BY created_at DESC`;
         break;
