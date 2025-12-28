@@ -239,7 +239,7 @@ const Admin = () => {
                   <Users className="h-8 w-8 text-blue-500" />
                   <div>
                     <p className="text-2xl font-bold">{users.length}</p>
-                    <p className="text-sm text-muted-foreground">Total Users</p>
+                    <p className="text-sm text-muted-foreground">Restaurant Owners</p>
                   </div>
                 </div>
               </CardContent>
@@ -286,11 +286,11 @@ const Admin = () => {
             </Card>
           </div>
 
-          {/* Users Table */}
+          {/* Owners Table */}
           <Card>
             <CardHeader>
-              <CardTitle>All Users</CardTitle>
-              <CardDescription>Manage user subscriptions and trials</CardDescription>
+              <CardTitle>Restaurant Owners</CardTitle>
+              <CardDescription>Manage owner subscriptions and trials (staff members are not shown)</CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading ? (
