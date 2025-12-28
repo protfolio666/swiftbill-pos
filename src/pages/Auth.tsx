@@ -102,11 +102,14 @@ const Auth = () => {
     trialDaysRemaining,
     refreshSubscription,
     isSubscriptionLoaded,
+    isStaffMember,
+    staffInfo,
   } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
 
-  const shouldShowSubscription = !!user && isSubscriptionLoaded && !hasActiveSubscription;
+  // Staff members should NEVER see subscription page - they use owner's subscription
+  const shouldShowSubscription = !!user && isSubscriptionLoaded && !hasActiveSubscription && !isStaffMember;
   const isAuthTransitionLoading = !!user && !isSubscriptionLoaded;
 
 
@@ -121,15 +124,22 @@ const Auth = () => {
   const [ownerName, setOwnerName] = useState('');
 
   // Redirect authenticated + active users straight into the app.
-  // IMPORTANT: wait until subscription status is loaded to avoid any UI flashes.
+  // Staff members are redirected immediately as they use owner's subscription.
   useEffect(() => {
     if (!user) return;
     if (!isSubscriptionLoaded) return;
 
+    // Staff members always go to app (their access is based on owner's subscription)
+    if (isStaffMember && hasActiveSubscription) {
+      navigate('/');
+      return;
+    }
+
+    // Owners/managers go to app if they have active subscription
     if (hasActiveSubscription) {
       navigate('/');
     }
-  }, [user, isSubscriptionLoaded, hasActiveSubscription, navigate]);
+  }, [user, isSubscriptionLoaded, hasActiveSubscription, isStaffMember, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

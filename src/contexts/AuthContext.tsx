@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, ReactNode, useRef } fro
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { resetPOSStore } from '@/stores/posStore';
+
 interface Profile {
   id: string;
   user_id: string;
@@ -21,6 +22,15 @@ interface Subscription {
   valid_until: string | null;
 }
 
+export type StaffRole = 'owner' | 'manager' | 'waiter' | 'chef';
+
+interface StaffInfo {
+  id: string;
+  role: StaffRole;
+  owner_id: string;
+  name: string;
+}
+
 interface AuthContextType {
   user: User | null;
   session: Session | null;
@@ -29,9 +39,13 @@ interface AuthContextType {
   hasActiveSubscription: boolean;
   isTrialActive: boolean;
   trialDaysRemaining: number;
-  /** True once we have finished checking the user’s subscription status for the current session */
+  /** True once we have finished checking the user's subscription status for the current session */
   isSubscriptionLoaded: boolean;
   isLoading: boolean;
+  /** Staff info if user is a staff member */
+  staffInfo: StaffInfo | null;
+  /** Whether user is a staff member (not owner) */
+  isStaffMember: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (
     email: string,
@@ -56,6 +70,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [trialDaysRemaining, setTrialDaysRemaining] = useState(0);
   const [isSubscriptionLoaded, setIsSubscriptionLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [staffInfo, setStaffInfo] = useState<StaffInfo | null>(null);
 
   // Avoid duplicate subscription checks (startup can trigger both getSession + onAuthStateChange)
   const subscriptionCheckPromiseRef = useRef<Promise<void> | null>(null);
@@ -73,22 +88,46 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const fetchSubscription = (userId: string) => {
+  const fetchStaffInfo = async (userId: string): Promise<StaffInfo | null> => {
+    const { data, error } = await supabase
+      .from('staff_members')
+      .select('id, role, owner_id, name')
+      .eq('user_id', userId)
+      .eq('is_active', true)
+      .single();
+    
+    if (!error && data) {
+      const info: StaffInfo = {
+        id: data.id,
+        role: data.role as StaffRole,
+        owner_id: data.owner_id,
+        name: data.name,
+      };
+      setStaffInfo(info);
+      return info;
+    }
+    setStaffInfo(null);
+    return null;
+  };
+
+  const fetchSubscription = (userId: string, overrideUserId?: string) => {
+    const targetUserId = overrideUserId || userId;
+    
     // Deduplicate in-flight checks for the same user
     if (
       subscriptionCheckPromiseRef.current &&
-      subscriptionCheckUserRef.current === userId
+      subscriptionCheckUserRef.current === targetUserId
     ) {
       return subscriptionCheckPromiseRef.current;
     }
 
     setIsSubscriptionLoaded(false);
-    subscriptionCheckUserRef.current = userId;
+    subscriptionCheckUserRef.current = targetUserId;
 
     const p = (async () => {
       try {
         const response = await supabase.functions.invoke('razorpay', {
-          body: { action: 'check-subscription', data: { userId } },
+          body: { action: 'check-subscription', data: { userId: targetUserId } },
         });
 
         if (response.data?.success) {
@@ -142,7 +181,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const refreshSubscription = async () => {
     if (user) {
-      await fetchSubscription(user.id);
+      // If staff member, check owner's subscription
+      if (staffInfo && staffInfo.role !== 'owner') {
+        await fetchSubscription(user.id, staffInfo.owner_id);
+      } else {
+        await fetchSubscription(user.id);
+      }
+    }
+  };
+
+  const handleUserLogin = async (userId: string) => {
+    // First check if user is a staff member
+    const staff = await fetchStaffInfo(userId);
+    
+    if (staff && staff.role !== 'owner') {
+      // Staff member - check owner's subscription instead
+      await fetchSubscription(userId, staff.owner_id);
+    } else {
+      // Owner or no staff record - check own subscription
+      await fetchProfile(userId);
+      await fetchSubscription(userId);
     }
   };
 
@@ -166,8 +224,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         // Defer profile and subscription fetch with setTimeout
         if (session?.user) {
           setTimeout(() => {
-            fetchProfile(session.user.id);
-            fetchSubscription(session.user.id);
+            handleUserLogin(session.user.id);
           }, 0);
         } else {
           setProfile(null);
@@ -175,6 +232,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setHasActiveSubscription(false);
           setIsTrialActive(false);
           setTrialDaysRemaining(0);
+          setStaffInfo(null);
         }
 
         // Only end loading AFTER initial session check has completed
@@ -199,14 +257,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        fetchProfile(session.user.id);
-        fetchSubscription(session.user.id);
+        handleUserLogin(session.user.id);
       } else {
         setProfile(null);
         setSubscription(null);
         setHasActiveSubscription(false);
         setIsTrialActive(false);
         setTrialDaysRemaining(0);
+        setStaffInfo(null);
       }
 
       setIsLoading(false);
@@ -254,9 +312,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsTrialActive(false);
     setTrialDaysRemaining(0);
     setIsSubscriptionLoaded(true);
+    setStaffInfo(null);
     // Reset POS store to clear user-specific data
     resetPOSStore();
   };
+
+  const isStaffMember = staffInfo !== null && staffInfo.role !== 'owner';
 
   return (
     <AuthContext.Provider value={{
@@ -269,6 +330,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       trialDaysRemaining,
       isSubscriptionLoaded,
       isLoading,
+      staffInfo,
+      isStaffMember,
       signIn,
       signUp,
       signOut,
