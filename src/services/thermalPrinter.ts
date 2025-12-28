@@ -141,12 +141,20 @@ class ThermalPrinterService {
 
   // Check if Web Serial API is supported
   isSerialSupported(): boolean {
-    return 'serial' in navigator;
+    try {
+      return 'serial' in navigator && typeof (navigator as any).serial?.requestPort === 'function';
+    } catch {
+      return false;
+    }
   }
 
   // Check if Web Bluetooth API is supported
   isBluetoothSupported(): boolean {
-    return 'bluetooth' in navigator;
+    try {
+      return 'bluetooth' in navigator && typeof (navigator as any).bluetooth?.requestDevice === 'function';
+    } catch {
+      return false;
+    }
   }
 
   // Connect via USB (Web Serial API)

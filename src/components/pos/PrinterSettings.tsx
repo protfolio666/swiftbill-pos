@@ -15,8 +15,24 @@ export function PrinterSettings() {
   const [networkIp, setNetworkIp] = useState('');
   const [networkPort, setNetworkPort] = useState('9100');
   const [isConnecting, setIsConnecting] = useState(false);
-  const [printerState, setPrinterState] = useState(thermalPrinter.getState());
   const [useThermalPrinter, setUseThermalPrinter] = useState(false);
+  
+  // Safely get printer state
+  const getPrinterState = () => {
+    try {
+      return thermalPrinter.getState();
+    } catch (e) {
+      console.error('Failed to get printer state:', e);
+      return {
+        isConnected: false,
+        connectionType: null,
+        deviceName: null,
+        paperWidth: '80mm' as PrinterPaperWidth,
+      };
+    }
+  };
+  
+  const [printerState, setPrinterState] = useState(getPrinterState);
 
   // Load saved preferences
   useEffect(() => {
@@ -29,7 +45,11 @@ export function PrinterSettings() {
         setNetworkIp(prefs.networkIp || '');
         setNetworkPort(prefs.networkPort || '9100');
         setUseThermalPrinter(prefs.useThermalPrinter || false);
-        thermalPrinter.setPaperWidth(prefs.paperWidth || '80mm');
+        try {
+          thermalPrinter.setPaperWidth(prefs.paperWidth || '80mm');
+        } catch (e) {
+          console.error('Failed to set paper width:', e);
+        }
       } catch (e) {
         console.error('Failed to load printer preferences:', e);
       }
@@ -45,7 +65,11 @@ export function PrinterSettings() {
       networkPort,
       useThermalPrinter,
     }));
-    thermalPrinter.setPaperWidth(paperWidth);
+    try {
+      thermalPrinter.setPaperWidth(paperWidth);
+    } catch (e) {
+      console.error('Failed to set paper width:', e);
+    }
   };
 
   const handleConnect = async () => {
@@ -84,7 +108,7 @@ export function PrinterSettings() {
         savePreferences();
       }
       
-      setPrinterState(thermalPrinter.getState());
+      setPrinterState(getPrinterState());
     } catch (error) {
       console.error('Connection error:', error);
       toast.error(error instanceof Error ? error.message : 'Failed to connect printer');
@@ -94,9 +118,14 @@ export function PrinterSettings() {
   };
 
   const handleDisconnect = async () => {
-    await thermalPrinter.disconnect();
-    setPrinterState(thermalPrinter.getState());
-    toast.success('Printer disconnected');
+    try {
+      await thermalPrinter.disconnect();
+      setPrinterState(getPrinterState());
+      toast.success('Printer disconnected');
+    } catch (error) {
+      console.error('Disconnect error:', error);
+      toast.error('Failed to disconnect printer');
+    }
   };
 
   const handleTestPrint = async () => {
@@ -104,6 +133,7 @@ export function PrinterSettings() {
       await thermalPrinter.printTestPage();
       toast.success('Test page sent to printer');
     } catch (error) {
+      console.error('Test print error:', error);
       toast.error('Failed to print test page');
     }
   };
@@ -220,7 +250,11 @@ export function PrinterSettings() {
               value={paperWidth}
               onValueChange={(val) => {
                 setPaperWidth(val as PrinterPaperWidth);
-                thermalPrinter.setPaperWidth(val as PrinterPaperWidth);
+                try {
+                  thermalPrinter.setPaperWidth(val as PrinterPaperWidth);
+                } catch (e) {
+                  console.error('Failed to set paper width:', e);
+                }
               }}
               className="grid grid-cols-2 gap-3"
             >
