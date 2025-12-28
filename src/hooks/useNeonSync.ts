@@ -5,6 +5,7 @@ import * as offlineCache from '@/services/offlineCache';
 import { toast } from 'sonner';
 import { MenuItem, Category, Order } from '@/types/pos';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/integrations/supabase/client';
 
 // Global flag to prevent multiple sync hooks from running simultaneously
 let globalSyncLock = false;
@@ -15,6 +16,7 @@ export function useNeonSync() {
   const [isSynced, setIsSynced] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [effectiveUserId, setEffectiveUserId] = useState<string | null>(null);
   const { user } = useAuth();
   const previousUserIdRef = useRef<string | null>(null);
   const syncInProgressRef = useRef(false);
@@ -30,6 +32,33 @@ export function useNeonSync() {
   const addMenuItemLocal = usePOSStore((state) => state.addMenuItem);
   const updateMenuItemLocal = usePOSStore((state) => state.updateMenuItem);
   const deleteMenuItemLocal = usePOSStore((state) => state.deleteMenuItem);
+
+  // Fetch effective user ID (owner_id for staff, own id for owners)
+  useEffect(() => {
+    if (!user) {
+      setEffectiveUserId(null);
+      return;
+    }
+
+    const fetchEffectiveUserId = async () => {
+      const { data: staffData } = await supabase
+        .from('staff_members')
+        .select('owner_id, role')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (staffData && staffData.role !== 'owner') {
+        // Staff member - use owner's ID for data access
+        setEffectiveUserId(staffData.owner_id);
+        console.log('Staff user, using owner_id for data:', staffData.owner_id);
+      } else {
+        // Owner or new user - use own ID
+        setEffectiveUserId(user.id);
+      }
+    };
+
+    fetchEffectiveUserId();
+  }, [user]);
 
   // Check if we already have data in the store (from zustand persistence or previous load)
   const hasExistingData = useCallback(() => {
@@ -78,7 +107,7 @@ export function useNeonSync() {
 
   // Background sync from Neon (silent - no loading indicators)
   const syncFromNeonSilent = useCallback(async (force = false) => {
-    if (!user) return;
+    if (!user || !effectiveUserId) return;
     
     // Use global lock to prevent multiple tabs/components from syncing
     if (globalSyncLock && !force) return;
@@ -86,14 +115,14 @@ export function useNeonSync() {
     
     // Skip sync if we recently synced (within 30 seconds) and have data
     if (!force && hasExistingData()) {
-      const lastSync = offlineCache.getLastSyncTime(user.id);
+      const lastSync = offlineCache.getLastSyncTime(effectiveUserId);
       if (lastSync && Date.now() - lastSync < 30000) {
         return; // Synced less than 30 seconds ago
       }
     }
 
     if (!navigator.onLine) {
-      const lastSync = offlineCache.getLastSyncTime(user.id);
+      const lastSync = offlineCache.getLastSyncTime(effectiveUserId);
       if (lastSync && !offlineCache.isCacheValid(lastSync)) {
         setSyncError('Offline cache expired. Connect to internet to sync.');
       }
@@ -122,7 +151,7 @@ export function useNeonSync() {
           icon: '📦',
         }));
         setCategories(categories);
-        offlineCache.saveToCache('categories', categories, user.id);
+        offlineCache.saveToCache('categories', categories, effectiveUserId);
       }
 
       // Process menu items
@@ -137,7 +166,7 @@ export function useNeonSync() {
           image: item.image_url || undefined,
         }));
         setMenuItems(menuItems);
-        offlineCache.saveToCache('menuItems', menuItems, user.id);
+        offlineCache.saveToCache('menuItems', menuItems, effectiveUserId);
       }
 
       // Process orders
@@ -159,7 +188,7 @@ export function useNeonSync() {
           tableNumber: order.table_number || undefined,
         }));
         setOrders(orders);
-        offlineCache.saveToCache('orders', orders, user.id);
+        offlineCache.saveToCache('orders', orders, effectiveUserId);
       }
 
       // Process brand settings
@@ -178,11 +207,11 @@ export function useNeonSync() {
           showGstOnReceipt: brand.show_gst_on_receipt ?? false,
         };
         setBrand(brandSettings);
-        offlineCache.saveToCache('brandSettings', brandSettings, user.id);
+        offlineCache.saveToCache('brandSettings', brandSettings, effectiveUserId);
       }
 
       // Mark sync complete
-      offlineCache.setLastSyncTime(user.id);
+      offlineCache.setLastSyncTime(effectiveUserId);
       setIsSynced(true);
     } catch (error) {
       console.error('Background sync error:', error);
@@ -191,7 +220,7 @@ export function useNeonSync() {
       syncInProgressRef.current = false;
       globalSyncLock = false;
     }
-  }, [user, setCategories, setMenuItems, setOrders, setBrand, hasExistingData]);
+  }, [user, effectiveUserId, setCategories, setMenuItems, setOrders, setBrand, hasExistingData]);
 
   // Network status listener
   useEffect(() => {
@@ -228,7 +257,10 @@ export function useNeonSync() {
 
   // Initial load: cache first, then background sync ONLY if needed
   useEffect(() => {
-    const currentUserId = user?.id || null;
+    // Wait for effectiveUserId to be determined
+    if (!effectiveUserId) return;
+    
+    const currentUserId = effectiveUserId;
     
     // Only do anything if user changed
     if (previousUserIdRef.current === currentUserId && initialLoadDoneRef.current) {
@@ -257,7 +289,7 @@ export function useNeonSync() {
         }
       }
     }
-  }, [user?.id, loadFromCacheImmediate, syncFromNeonSilent]);
+  }, [effectiveUserId, loadFromCacheImmediate, syncFromNeonSilent]);
 
   // Save category to Neon
   const addCategory = useCallback(async (name: string, icon: string) => {

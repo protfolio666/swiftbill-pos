@@ -22,6 +22,7 @@ serve(async (req) => {
     // Get user from auth header
     const authHeader = req.headers.get('authorization');
     let userId: string | null = null;
+    let effectiveUserId: string | null = null; // This will be owner_id for staff
 
     if (authHeader) {
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -42,6 +43,26 @@ serve(async (req) => {
 
     const sql = neon(databaseUrl);
     const { action, data } = await req.json();
+
+    // Check if user is staff and get their owner_id
+    // Staff should see owner's data (menu items, categories, etc.)
+    const staffCheck = await sql`
+      SELECT owner_id, role FROM staff_members WHERE user_id = ${userId} LIMIT 1
+    `;
+    
+    if (staffCheck.length > 0) {
+      const staffRecord = staffCheck[0];
+      // For staff (non-owner), use owner_id to fetch restaurant data
+      if (staffRecord.role !== 'owner') {
+        effectiveUserId = staffRecord.owner_id;
+        console.log(`Staff user ${userId} (role: ${staffRecord.role}) using owner_id: ${effectiveUserId}`);
+      } else {
+        effectiveUserId = userId;
+      }
+    } else {
+      // Not staff yet - use their own user_id (might be new owner)
+      effectiveUserId = userId;
+    }
 
     let result;
 
@@ -186,31 +207,32 @@ serve(async (req) => {
         result = await sql`SELECT * FROM users ORDER BY created_at DESC`;
         break;
 
-      // Categories - filtered by user_id
+      // Categories - filtered by effectiveUserId (owner's ID for staff)
       case 'getCategories':
-        result = await sql`SELECT * FROM categories WHERE user_id = ${userId} ORDER BY name`;
+        result = await sql`SELECT * FROM categories WHERE user_id = ${effectiveUserId} ORDER BY name`;
         break;
       
       case 'createCategory':
+        // Only owners should create categories - use effectiveUserId
         result = await sql`
           INSERT INTO categories (name, color, user_id) 
-          VALUES (${data.name}, ${data.color}, ${userId}) 
+          VALUES (${data.name}, ${data.color}, ${effectiveUserId}) 
           RETURNING *`;
         break;
 
       case 'deleteCategory':
-        result = await sql`DELETE FROM categories WHERE id = ${data.id} AND user_id = ${userId} RETURNING *`;
+        result = await sql`DELETE FROM categories WHERE id = ${data.id} AND user_id = ${effectiveUserId} RETURNING *`;
         break;
 
-      // Menu Items - filtered by user_id
+      // Menu Items - filtered by effectiveUserId (owner's ID for staff)
       case 'getMenuItems':
-        result = await sql`SELECT * FROM menu_items WHERE user_id = ${userId} ORDER BY name`;
+        result = await sql`SELECT * FROM menu_items WHERE user_id = ${effectiveUserId} ORDER BY name`;
         break;
 
       case 'createMenuItem':
         result = await sql`
           INSERT INTO menu_items (name, price, category_id, image_url, stock, user_id) 
-          VALUES (${data.name}, ${data.price}, ${data.category_id}, ${data.image_url}, ${data.stock || 0}, ${userId}) 
+          VALUES (${data.name}, ${data.price}, ${data.category_id}, ${data.image_url}, ${data.stock || 0}, ${effectiveUserId}) 
           RETURNING *`;
         break;
 
@@ -219,17 +241,17 @@ serve(async (req) => {
           UPDATE menu_items 
           SET name = ${data.name}, price = ${data.price}, category_id = ${data.category_id}, 
               image_url = ${data.image_url}, stock = ${data.stock}
-          WHERE id = ${data.id} AND user_id = ${userId}
+          WHERE id = ${data.id} AND user_id = ${effectiveUserId}
           RETURNING *`;
         break;
 
       case 'deleteMenuItem':
-        result = await sql`DELETE FROM menu_items WHERE id = ${data.id} AND user_id = ${userId} RETURNING *`;
+        result = await sql`DELETE FROM menu_items WHERE id = ${data.id} AND user_id = ${effectiveUserId} RETURNING *`;
         break;
 
-      // Orders - filtered by user_id
+      // Orders - filtered by effectiveUserId (owner's ID for staff)
       case 'getOrders':
-        result = await sql`SELECT * FROM orders WHERE user_id = ${userId} ORDER BY created_at DESC`;
+        result = await sql`SELECT * FROM orders WHERE user_id = ${effectiveUserId} ORDER BY created_at DESC`;
         break;
 
       case 'createOrder':
@@ -245,7 +267,7 @@ serve(async (req) => {
         
         result = await sql`
           INSERT INTO orders (items, total, payment_method, status, user_id, customer_name, customer_phone, order_type, table_number) 
-          VALUES (${JSON.stringify(data.items)}, ${data.total}, ${data.payment_method}, ${data.status || 'completed'}, ${userId}, ${data.customer_name || null}, ${data.customer_phone || null}, ${data.order_type || null}, ${data.table_number || null}) 
+          VALUES (${JSON.stringify(data.items)}, ${data.total}, ${data.payment_method}, ${data.status || 'completed'}, ${effectiveUserId}, ${data.customer_name || null}, ${data.customer_phone || null}, ${data.order_type || null}, ${data.table_number || null}) 
           RETURNING *`;
         break;
 
@@ -350,9 +372,9 @@ serve(async (req) => {
         console.log('KOT order deleted from Neon:', result);
         break;
 
-      // Brand Settings - filtered by user_id
+      // Brand Settings - filtered by effectiveUserId (owner's ID for staff)
       case 'getBrandSettings':
-        result = await sql`SELECT * FROM brand_settings WHERE user_id = ${userId} LIMIT 1`;
+        result = await sql`SELECT * FROM brand_settings WHERE user_id = ${effectiveUserId} LIMIT 1`;
         break;
 
       case 'updateBrandSettings':
@@ -370,7 +392,7 @@ serve(async (req) => {
           console.log('Migration check completed');
         }
 
-        const existing = await sql`SELECT id FROM brand_settings WHERE user_id = ${userId} LIMIT 1`;
+        const existing = await sql`SELECT id FROM brand_settings WHERE user_id = ${effectiveUserId} LIMIT 1`;
         if (existing.length > 0) {
           result = await sql`
             UPDATE brand_settings 
@@ -385,12 +407,12 @@ serve(async (req) => {
                 sgst_rate = ${data.sgst_rate || 2.5},
                 gstin = ${data.gstin || null},
                 show_gst_on_receipt = ${data.show_gst_on_receipt ?? false}
-            WHERE id = ${existing[0].id} AND user_id = ${userId}
+            WHERE id = ${existing[0].id} AND user_id = ${effectiveUserId}
             RETURNING *`;
         } else {
           result = await sql`
             INSERT INTO brand_settings (business_name, logo_url, primary_color, currency, user_id, upi_id, tax_rate, enable_gst, cgst_rate, sgst_rate, gstin, show_gst_on_receipt) 
-            VALUES (${data.business_name}, ${data.logo_url}, ${data.primary_color}, ${data.currency}, ${userId}, ${data.upi_id || null}, ${data.tax_rate || 5}, ${data.enable_gst ?? true}, ${data.cgst_rate || 2.5}, ${data.sgst_rate || 2.5}, ${data.gstin || null}, ${data.show_gst_on_receipt ?? false}) 
+            VALUES (${data.business_name}, ${data.logo_url}, ${data.primary_color}, ${data.currency}, ${effectiveUserId}, ${data.upi_id || null}, ${data.tax_rate || 5}, ${data.enable_gst ?? true}, ${data.cgst_rate || 2.5}, ${data.sgst_rate || 2.5}, ${data.gstin || null}, ${data.show_gst_on_receipt ?? false}) 
             RETURNING *`;
         }
         break;
