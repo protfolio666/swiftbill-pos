@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Sidebar } from '@/components/pos/Sidebar';
 import { MobileNav } from '@/components/pos/MobileNav';
 import { MobileCart } from '@/components/pos/MobileCart';
@@ -8,27 +8,18 @@ import { InventoryView } from '@/components/pos/InventoryView';
 import { SettingsView } from '@/components/pos/SettingsView';
 import { OrderHistory } from '@/components/pos/OrderHistory';
 import { Helmet } from 'react-helmet-async';
-import { NeonProvider, useNeon } from '@/contexts/NeonContext';
+import { useNeon } from '@/contexts/NeonContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { Loader2, Clock, Crown, WifiOff, RefreshCw } from 'lucide-react';
+import { Clock, Crown, WifiOff, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePOSStore } from '@/stores/posStore';
 
-const IndexContent = () => {
+const Index = () => {
   const [activeTab, setActiveTab] = useState('pos');
   const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const { isLoading, isOnline, syncError, refresh } = useNeon();
-  const { isTrialActive, trialDaysRemaining, subscription, refreshSubscription } = useAuth();
+  const { isTrialActive, trialDaysRemaining, subscription } = useAuth();
   const { brand } = usePOSStore();
-
-  // Avoid immediate re-check after login (causes a second loading flash).
-  // Only refresh if we truly don't have subscription info yet.
-  useEffect(() => {
-    if (!subscription) {
-      refreshSubscription();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const renderContent = () => {
     switch (activeTab) {
@@ -47,9 +38,6 @@ const IndexContent = () => {
     }
   };
 
-  // Remove blocking loading screen - app loads from cache instantly
-  // Only show minimal loading indicator if explicitly refreshing
-
   return (
     <>
       <Helmet>
@@ -66,7 +54,7 @@ const IndexContent = () => {
         {!isOnline && (
           <div className="bg-muted/80 text-muted-foreground px-3 py-1 flex items-center justify-center gap-2 shrink-0 text-xs">
             <WifiOff className="h-3 w-3" />
-            <span>Offline mode</span>
+            <span>Offline mode - changes will sync when online</span>
           </div>
         )}
 
@@ -135,12 +123,5 @@ const IndexContent = () => {
     </>
   );
 };
-
-// Main Index component wraps content with NeonProvider
-const Index = () => (
-  <NeonProvider>
-    <IndexContent />
-  </NeonProvider>
-);
 
 export default Index;
