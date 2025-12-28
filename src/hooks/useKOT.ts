@@ -339,6 +339,13 @@ export function useKOT() {
       return { error };
     }
 
+    // Sync to Neon DB in background
+    if (data) {
+      supabase.functions.invoke('neon-db', {
+        body: { action: 'syncKOTOrder', data: data }
+      }).catch(err => console.error('Neon sync KOT order error:', err));
+    }
+
     await fetchKOTOrders();
     return { data, error: null };
   };
@@ -359,14 +366,23 @@ export function useKOT() {
       updates.served_at = new Date().toISOString();
     }
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('kot_orders')
       .update(updates)
-      .eq('id', orderId);
+      .eq('id', orderId)
+      .select()
+      .single();
 
     if (error) {
       toast.error('Failed to update order');
       return { error };
+    }
+
+    // Sync status update to Neon DB in background
+    if (data) {
+      supabase.functions.invoke('neon-db', {
+        body: { action: 'syncKOTOrder', data: data }
+      }).catch(err => console.error('Neon sync KOT order status error:', err));
     }
 
     await fetchKOTOrders();

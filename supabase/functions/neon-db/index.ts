@@ -249,6 +249,107 @@ serve(async (req) => {
           RETURNING *`;
         break;
 
+      // KOT Orders - Kitchen Order Tickets
+      case 'syncKOTOrder':
+        // Ensure kot_orders table exists
+        try {
+          await sql`
+            CREATE TABLE IF NOT EXISTS kot_orders (
+              id UUID PRIMARY KEY,
+              order_id TEXT NOT NULL,
+              owner_id UUID NOT NULL,
+              waiter_id UUID,
+              assigned_chef_id UUID,
+              status TEXT DEFAULT 'pending',
+              items JSONB NOT NULL,
+              table_number INTEGER,
+              customer_name TEXT,
+              prep_time_minutes INTEGER DEFAULT 15,
+              delay_reason TEXT,
+              delay_remarks TEXT,
+              started_at TIMESTAMP WITH TIME ZONE,
+              completed_at TIMESTAMP WITH TIME ZONE,
+              served_at TIMESTAMP WITH TIME ZONE,
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            )
+          `;
+        } catch (tableError) {
+          console.log('KOT orders table already exists or error:', tableError);
+        }
+
+        // Upsert KOT order
+        const existingKOT = await sql`SELECT id FROM kot_orders WHERE id = ${data.id} LIMIT 1`;
+        if (existingKOT.length > 0) {
+          result = await sql`
+            UPDATE kot_orders 
+            SET order_id = ${data.order_id},
+                owner_id = ${data.owner_id},
+                waiter_id = ${data.waiter_id || null},
+                assigned_chef_id = ${data.assigned_chef_id || null},
+                status = ${data.status || 'pending'},
+                items = ${JSON.stringify(data.items)},
+                table_number = ${data.table_number || null},
+                customer_name = ${data.customer_name || null},
+                prep_time_minutes = ${data.prep_time_minutes || 15},
+                delay_reason = ${data.delay_reason || null},
+                delay_remarks = ${data.delay_remarks || null},
+                started_at = ${data.started_at || null},
+                completed_at = ${data.completed_at || null},
+                served_at = ${data.served_at || null},
+                updated_at = NOW()
+            WHERE id = ${data.id}
+            RETURNING *`;
+        } else {
+          result = await sql`
+            INSERT INTO kot_orders (id, order_id, owner_id, waiter_id, assigned_chef_id, status, items, table_number, customer_name, prep_time_minutes, delay_reason, delay_remarks, started_at, completed_at, served_at)
+            VALUES (${data.id}, ${data.order_id}, ${data.owner_id}, ${data.waiter_id || null}, ${data.assigned_chef_id || null}, ${data.status || 'pending'}, ${JSON.stringify(data.items)}, ${data.table_number || null}, ${data.customer_name || null}, ${data.prep_time_minutes || 15}, ${data.delay_reason || null}, ${data.delay_remarks || null}, ${data.started_at || null}, ${data.completed_at || null}, ${data.served_at || null})
+            RETURNING *`;
+        }
+        console.log('KOT order synced to Neon:', result);
+        break;
+
+      case 'getKOTOrders':
+        // Get KOT orders for a specific owner
+        result = await sql`SELECT * FROM kot_orders WHERE owner_id = ${data.ownerId} ORDER BY created_at DESC`;
+        break;
+
+      case 'getReadyToServeOrders':
+        // Get orders with status 'completed' that waiter needs to serve
+        result = await sql`
+          SELECT ko.*, sm.name as waiter_name 
+          FROM kot_orders ko
+          LEFT JOIN staff_members sm ON ko.waiter_id = sm.id
+          WHERE ko.owner_id = ${data.ownerId} AND ko.status = 'completed'
+          ORDER BY ko.completed_at ASC`;
+        console.log('Ready to serve orders:', result);
+        break;
+
+      case 'updateKOTOrderStatus':
+        // Update KOT order status
+        const statusUpdates: any = { status: data.status };
+        if (data.status === 'preparing') statusUpdates.started_at = new Date().toISOString();
+        if (data.status === 'completed') statusUpdates.completed_at = new Date().toISOString();
+        if (data.status === 'served') statusUpdates.served_at = new Date().toISOString();
+
+        result = await sql`
+          UPDATE kot_orders 
+          SET status = ${data.status},
+              started_at = ${statusUpdates.started_at || null},
+              completed_at = ${statusUpdates.completed_at || null},
+              served_at = ${statusUpdates.served_at || null},
+              updated_at = NOW()
+          WHERE id = ${data.orderId}
+          RETURNING *`;
+        console.log('KOT order status updated:', result);
+        break;
+
+      case 'deleteKOTOrder':
+        // Delete a KOT order
+        result = await sql`DELETE FROM kot_orders WHERE id = ${data.orderId} RETURNING *`;
+        console.log('KOT order deleted from Neon:', result);
+        break;
+
       // Brand Settings - filtered by user_id
       case 'getBrandSettings':
         result = await sql`SELECT * FROM brand_settings WHERE user_id = ${userId} LIMIT 1`;
