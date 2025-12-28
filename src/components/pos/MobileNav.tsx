@@ -19,15 +19,15 @@ export function MobileNav({ activeTab, onTabChange, role, isKOTEnabled, permissi
   // Build nav items based on role and KOT status
   const getNavItems = () => {
     // Chef-specific navigation
-    if (isKOTEnabled && role === 'chef') {
+    if (role === 'chef') {
       return [
         { id: 'chef', label: 'Kitchen', icon: ChefHat },
         { id: 'settings', label: 'Settings', icon: Settings },
       ];
     }
 
-    // Waiter-specific navigation
-    if (isKOTEnabled && role === 'waiter') {
+    // Waiter-specific navigation - NO settings access
+    if (role === 'waiter') {
       return [
         { id: 'pos', label: 'POS', icon: ShoppingCart },
         { id: 'waiter', label: 'Orders', icon: ClipboardList },
