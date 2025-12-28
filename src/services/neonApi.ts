@@ -96,6 +96,10 @@ export interface DbOrder {
   status: string;
   user_id: string;
   created_at: string;
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  order_type?: string | null;
+  table_number?: number | null;
 }
 
 export interface DbBrandSettings {
@@ -132,6 +136,10 @@ export interface CreateOrderInput {
   total: number;
   payment_method: string;
   status?: string;
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  order_type?: string | null;
+  table_number?: number | null;
 }
 
 export interface UpdateBrandSettingsInput {

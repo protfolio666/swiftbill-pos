@@ -339,7 +339,7 @@ class ThermalPrinterService {
     sgst?: number;
     total: number;
     date: Date;
-    orderType: 'dine-in' | 'takeaway';
+    orderType: 'dine-in' | 'takeaway' | 'delivery';
     tableNumber?: number;
     customerName?: string;
     customerPhone?: string;
@@ -383,7 +383,8 @@ class ThermalPrinterService {
     // Order type
     data += COMMANDS.ALIGN_CENTER;
     data += COMMANDS.BOLD_ON;
-    data += '[ ' + (order.orderType === 'dine-in' ? 'DINE-IN' : 'TAKEAWAY') + ' ]' + LF;
+    const orderTypeLabel = order.orderType === 'dine-in' ? 'DINE-IN' : order.orderType === 'delivery' ? 'DELIVERY' : 'TAKEAWAY';
+    data += '[ ' + orderTypeLabel + ' ]' + LF;
     data += COMMANDS.BOLD_OFF;
 
     // Table number

@@ -11,7 +11,7 @@ export interface CartItem extends MenuItem {
   quantity: number;
 }
 
-export type OrderType = 'dine-in' | 'takeaway';
+export type OrderType = 'dine-in' | 'takeaway' | 'delivery';
 
 export interface Order {
   id: string;
