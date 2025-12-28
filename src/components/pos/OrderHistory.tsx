@@ -787,6 +787,18 @@ export function OrderHistory() {
                       {isExpanded && (
                         <div className="px-4 pb-4 pt-0 animate-fade-in">
                           <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                            {/* Customer Details */}
+                            {(order.customerName || order.customerPhone) && (
+                              <div className="border-b border-border pb-2 mb-2">
+                                <p className="text-xs font-medium text-muted-foreground mb-1">Customer Details</p>
+                                {order.customerName && (
+                                  <p className="text-sm text-foreground">Name: {order.customerName}</p>
+                                )}
+                                {order.customerPhone && (
+                                  <p className="text-sm text-foreground">Phone: {order.customerPhone}</p>
+                                )}
+                              </div>
+                            )}
                             {order.items.map((item, index) => (
                               <div 
                                 key={`${order.id}-${item.id}-${index}`}
