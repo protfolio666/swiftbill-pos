@@ -22,6 +22,14 @@ import { Order } from '@/types/pos';
 import { SalesChart } from './SalesChart';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import QRCode from 'qrcode';
+
+// Generate UPI payment link
+const generateUpiLink = (upiId: string, name: string, amount: number, orderId: string) => {
+  const encodedName = encodeURIComponent(name);
+  const note = encodeURIComponent(`Payment for ${orderId}`);
+  return `upi://pay?pa=${upiId}&pn=${encodedName}&am=${amount.toFixed(2)}&cu=INR&tn=${note}`;
+};
 
 export function OrderHistory() {
   const { orders, brand } = usePOSStore();
@@ -179,121 +187,341 @@ export function OrderHistory() {
     toast.success(`Exported ${ordersToExport.length} orders to CSV`);
   };
 
-  const printReceipt = (order: Order) => {
+  const printReceipt = async (order: Order) => {
     const orderDate = new Date(order.date);
     const hasGST = (order.cgst ?? 0) > 0 || (order.sgst ?? 0) > 0;
     const taxableAmount = order.subtotal - (order.discount ?? 0);
     const totalTax = hasGST ? (order.cgst ?? 0) + (order.sgst ?? 0) : (order.total - taxableAmount);
+
+    // Generate UPI QR code if UPI ID is configured
+    let qrCodeDataUrl = '';
+    if (brand.upiId) {
+      try {
+        const upiLink = generateUpiLink(brand.upiId, brand.name, order.total, order.id);
+        qrCodeDataUrl = await QRCode.toDataURL(upiLink, {
+          width: 120,
+          margin: 1,
+          color: { dark: '#000000', light: '#ffffff' }
+        });
+      } catch (err) {
+        console.error('Failed to generate QR code:', err);
+      }
+    }
 
     const receiptContent = `
       <!DOCTYPE html>
       <html>
       <head>
         <title>Receipt - ${order.id}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
+          @page { margin: 0; size: 80mm auto; }
           * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { font-family: 'Courier New', monospace; padding: 20px; max-width: 300px; margin: 0 auto; }
-          .header { text-align: center; margin-bottom: 20px; border-bottom: 2px dashed #000; padding-bottom: 15px; }
-          .brand { font-size: 24px; font-weight: bold; margin-bottom: 5px; }
-          .order-id { font-size: 12px; color: #666; }
-          .date { font-size: 12px; margin-top: 5px; }
-          .order-info { display: flex; justify-content: center; gap: 20px; margin-top: 8px; font-size: 14px; font-weight: bold; }
-          .order-type { background: #000; color: #fff; padding: 2px 8px; border-radius: 4px; }
-          .table-num { border: 1px solid #000; padding: 2px 8px; border-radius: 4px; }
-          .items { margin: 15px 0; }
-          .item { display: flex; justify-content: space-between; margin: 8px 0; font-size: 14px; }
-          .item-name { flex: 1; }
-          .item-qty { width: 30px; text-align: center; }
-          .item-price { width: 70px; text-align: right; }
-          .divider { border-top: 1px dashed #000; margin: 15px 0; }
-          .totals { margin-top: 10px; }
-          .total-row { display: flex; justify-content: space-between; margin: 5px 0; font-size: 14px; }
-          .discount { color: #16a34a; }
-          .tax-section { background: #f5f5f5; padding: 8px; margin: 10px 0; border-radius: 4px; }
-          .tax-header { font-weight: bold; margin-bottom: 5px; font-size: 12px; text-transform: uppercase; }
-          .grand-total { font-weight: bold; font-size: 18px; margin-top: 10px; border-top: 2px solid #000; padding-top: 10px; }
-          .footer { text-align: center; margin-top: 20px; font-size: 12px; color: #666; }
-          @media print { body { padding: 0; } .tax-section { background: #f5f5f5; -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+          body { 
+            font-family: 'Courier New', 'Lucida Console', Monaco, monospace; 
+            font-size: 11px;
+            line-height: 1.4;
+            padding: 10px 8px;
+            width: 80mm;
+            max-width: 80mm;
+            background: #fff;
+            color: #000;
+          }
+          .header {
+            text-align: center;
+            margin-bottom: 8px;
+          }
+          .logo {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+            margin-bottom: 4px;
+          }
+          .brand-name {
+            font-size: 18px;
+            font-weight: bold;
+            letter-spacing: 2px;
+            margin-bottom: 2px;
+          }
+          .divider {
+            border: none;
+            border-top: 1px dashed #000;
+            margin: 6px 0;
+          }
+          .divider-double {
+            border: none;
+            border-top: 2px solid #000;
+            margin: 6px 0;
+          }
+          .info-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 2px 0;
+          }
+          .info-label {
+            font-weight: normal;
+          }
+          .order-type-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border: 1px solid #000;
+            font-weight: bold;
+            margin: 4px 0;
+          }
+          .items-header {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            margin: 4px 0;
+            padding-bottom: 2px;
+            border-bottom: 1px solid #000;
+          }
+          .item-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 4px 0;
+            align-items: flex-start;
+          }
+          .item-name {
+            flex: 1;
+            padding-right: 8px;
+          }
+          .item-qty {
+            width: 30px;
+            text-align: center;
+          }
+          .item-price {
+            width: 70px;
+            text-align: right;
+          }
+          .totals-section {
+            margin-top: 8px;
+          }
+          .total-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 3px 0;
+          }
+          .total-row.highlight {
+            font-weight: bold;
+            font-size: 13px;
+            padding: 4px 0;
+          }
+          .tax-box {
+            border: 1px dashed #000;
+            padding: 6px;
+            margin: 6px 0;
+          }
+          .tax-title {
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 4px;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+          }
+          .grand-total {
+            font-size: 14px;
+            font-weight: bold;
+            padding: 6px 0;
+            text-align: center;
+            background: #000;
+            color: #fff;
+            margin: 8px 0;
+          }
+          .qr-section {
+            text-align: center;
+            margin: 10px 0;
+            padding: 8px;
+            border: 1px dashed #000;
+          }
+          .qr-title {
+            font-weight: bold;
+            margin-bottom: 6px;
+            font-size: 10px;
+            letter-spacing: 1px;
+          }
+          .qr-section img {
+            width: 100px;
+            height: 100px;
+          }
+          .qr-upi {
+            font-size: 9px;
+            margin-top: 4px;
+            word-break: break-all;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 12px;
+            font-size: 10px;
+          }
+          .footer-stars {
+            letter-spacing: 4px;
+            margin-top: 4px;
+          }
+          @media print {
+            body { padding: 0; }
+            .grand-total {
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+          }
         </style>
       </head>
       <body>
         <div class="header">
-          ${brand.logo ? `<img src="${brand.logo}" alt="Logo" style="width: 60px; height: 60px; object-fit: contain; margin: 0 auto 10px;" />` : ''}
-          <div class="brand">${brand.name}</div>
-          <div class="order-id">${order.id}</div>
-          <div class="date">${format(orderDate, 'MMM dd, yyyy')} at ${format(orderDate, 'hh:mm a')}</div>
-          <div class="order-info">
-            <span class="order-type">${(order.orderType ?? 'dine-in') === 'dine-in' ? 'DINE-IN' : 'TAKEAWAY'}</span>
-            ${(order.orderType ?? 'dine-in') === 'dine-in' && order.tableNumber ? `<span class="table-num">Table ${order.tableNumber}</span>` : ''}
+          ${brand.logo ? `<img class="logo" src="${brand.logo}" alt="Logo" />` : ''}
+          <div class="brand-name">${brand.name.toUpperCase()}</div>
+          ${brand.showGstOnReceipt && brand.gstin ? `<div style="font-size: 10px; margin-top: 2px;">GSTIN: ${brand.gstin}</div>` : ''}
+        </div>
+        
+        <hr class="divider" />
+        
+        <div class="info-row">
+          <span class="info-label">Slip:</span>
+          <span>${order.id}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">Date:</span>
+          <span>${orderDate.toLocaleDateString()} ${orderDate.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+        </div>
+        <div style="text-align: center; margin: 6px 0;">
+          <span class="order-type-badge">${order.orderType === 'dine-in' ? 'DINE-IN' : 'TAKEAWAY'}</span>
+        </div>
+        ${order.orderType === 'dine-in' && order.tableNumber ? `
+          <div style="text-align: center; margin: 8px 0; font-size: 16px; font-weight: bold; border: 2px solid #000; padding: 6px;">
+            TABLE NO: ${order.tableNumber}
           </div>
+        ` : ''}
+        ${order.customerName || order.customerPhone ? `
+          <div style="margin: 6px 0; padding: 6px; border: 1px dashed #000;">
+            ${order.customerName ? `<div class="info-row"><span class="info-label">Customer:</span><span>${order.customerName}</span></div>` : ''}
+            ${order.customerPhone ? `<div class="info-row"><span class="info-label">Phone:</span><span>${order.customerPhone}</span></div>` : ''}
+          </div>
+        ` : ''}
+        
+        <hr class="divider" />
+        
+        <div class="items-header">
+          <span style="flex: 1;">Description</span>
+          <span style="width: 30px; text-align: center;">Qty</span>
+          <span style="width: 70px; text-align: right;">Amount</span>
         </div>
-        <div class="items">
-          ${order.items.map(item => `
-            <div class="item">
-              <span class="item-qty">${item.quantity}x</span>
-              <span class="item-name">${item.name}</span>
-              <span class="item-price">${brand.currency}${(item.price * item.quantity).toFixed(2)}</span>
-            </div>
-          `).join('')}
-        </div>
-        <div class="divider"></div>
-        <div class="totals">
+        
+        ${order.items.map(item => `
+          <div class="item-row">
+            <span class="item-name">${item.name}</span>
+            <span class="item-qty">${item.quantity}</span>
+            <span class="item-price">${brand.currency}${(item.price * item.quantity).toFixed(2)}</span>
+          </div>
+        `).join('')}
+        
+        <hr class="divider-double" />
+        
+        <div class="totals-section">
           <div class="total-row">
             <span>Subtotal</span>
             <span>${brand.currency}${order.subtotal.toFixed(2)}</span>
           </div>
           ${(order.discount ?? 0) > 0 ? `
-            <div class="total-row discount">
+            <div class="total-row" style="color: #16a34a;">
               <span>Discount</span>
               <span>-${brand.currency}${order.discount.toFixed(2)}</span>
             </div>
           ` : ''}
-          <div class="total-row">
-            <span>Taxable Amount</span>
-            <span>${brand.currency}${taxableAmount.toFixed(2)}</span>
-          </div>
-          <div class="tax-section">
-            <div class="tax-header">Tax Details</div>
-            ${hasGST ? `
-              <div class="total-row">
-                <span>CGST @ ${brand.cgstRate ?? 2.5}%</span>
-                <span>${brand.currency}${(order.cgst ?? 0).toFixed(2)}</span>
-              </div>
-              <div class="total-row">
-                <span>SGST @ ${brand.sgstRate ?? 2.5}%</span>
-                <span>${brand.currency}${(order.sgst ?? 0).toFixed(2)}</span>
-              </div>
-            ` : `
-              <div class="total-row">
-                <span>Tax @ ${brand.taxRate ?? 5}%</span>
-                <span>${brand.currency}${totalTax.toFixed(2)}</span>
-              </div>
-            `}
-            <div class="total-row" style="font-weight: bold; border-top: 1px dashed #ccc; padding-top: 5px; margin-top: 5px;">
-              <span>Total Tax</span>
+        </div>
+        
+        <div class="tax-box">
+          <div class="tax-title">Tax Details</div>
+          ${hasGST ? `
+            <div class="total-row">
+              <span>CGST @ ${brand.cgstRate ?? 2.5}%</span>
+              <span>${brand.currency}${(order.cgst ?? 0).toFixed(2)}</span>
+            </div>
+            <div class="total-row">
+              <span>SGST @ ${brand.sgstRate ?? 2.5}%</span>
+              <span>${brand.currency}${(order.sgst ?? 0).toFixed(2)}</span>
+            </div>
+          ` : `
+            <div class="total-row">
+              <span>Tax @ ${brand.taxRate ?? 5}%</span>
               <span>${brand.currency}${totalTax.toFixed(2)}</span>
             </div>
-          </div>
-          <div class="total-row grand-total">
-            <span>GRAND TOTAL</span>
-            <span>${brand.currency}${order.total.toFixed(2)}</span>
-          </div>
+          `}
         </div>
+        
+        <div class="grand-total">
+          TOTAL: ${brand.currency}${order.total.toFixed(2)}
+        </div>
+        
+        ${qrCodeDataUrl ? `
+          <div class="qr-section">
+            <div class="qr-title">SCAN TO PAY</div>
+            <img src="${qrCodeDataUrl}" alt="UPI QR" />
+            <div class="qr-upi">UPI: ${brand.upiId}</div>
+          </div>
+        ` : ''}
+        
         <div class="footer">
-          <p>Thank you for your visit!</p>
+          <div>Thank you for your visit!</div>
+          <div class="footer-stars">* * * * *</div>
+          <div style="margin-top: 4px;">Welcome again</div>
         </div>
       </body>
       </html>
     `;
 
-    const printWindow = window.open('', '_blank', 'width=350,height=600');
-    if (printWindow) {
-      printWindow.document.write(receiptContent);
-      printWindow.document.close();
-      printWindow.focus();
+    // Create a hidden iframe for printing
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'fixed';
+    printFrame.style.right = '0';
+    printFrame.style.bottom = '0';
+    printFrame.style.width = '0';
+    printFrame.style.height = '0';
+    printFrame.style.border = 'none';
+    printFrame.style.visibility = 'hidden';
+    document.body.appendChild(printFrame);
+
+    const frameDoc = printFrame.contentWindow?.document;
+    if (frameDoc) {
+      frameDoc.open();
+      frameDoc.write(receiptContent);
+      frameDoc.close();
+
+      // Wait for content to load then print
       setTimeout(() => {
-        printWindow.print();
-      }, 250);
+        try {
+          printFrame.contentWindow?.focus();
+          printFrame.contentWindow?.print();
+        } catch (e) {
+          console.error('Print failed:', e);
+          toast.error('Print failed. Please try again.');
+        }
+        // Clean up iframe after printing
+        setTimeout(() => {
+          if (document.body.contains(printFrame)) {
+            document.body.removeChild(printFrame);
+          }
+        }, 2000);
+      }, 500);
+    } else {
+      // Fallback: Create blob URL and open in new tab
+      const blob = new Blob([receiptContent], { type: 'text/html' });
+      const blobUrl = URL.createObjectURL(blob);
+      const printTab = window.open(blobUrl, '_blank');
+      if (printTab) {
+        printTab.onload = () => {
+          setTimeout(() => {
+            printTab.print();
+            URL.revokeObjectURL(blobUrl);
+          }, 500);
+        };
+      } else {
+        toast.error('Unable to open print window. Please check popup settings.');
+        URL.revokeObjectURL(blobUrl);
+      }
+      // Cleanup iframe
+      document.body.removeChild(printFrame);
     }
   };
 
