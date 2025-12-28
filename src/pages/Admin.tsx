@@ -84,13 +84,20 @@ const Admin = () => {
       if (syncError) throw syncError;
 
       // Sync all owners to Neon
-      const { error: neonError } = await supabase.functions.invoke('neon-db', {
+      const { error: neonUsersError } = await supabase.functions.invoke('neon-db', {
         body: { action: 'syncUsers', data: { users: syncData.owners } }
       });
 
-      if (neonError) throw neonError;
+      if (neonUsersError) throw neonUsersError;
 
-      toast.success(`Synced ${syncData.count} owners to Neon DB`);
+      // Sync all staff to Neon
+      const { error: neonStaffError } = await supabase.functions.invoke('neon-db', {
+        body: { action: 'syncStaff', data: { staff: syncData.staff } }
+      });
+
+      if (neonStaffError) throw neonStaffError;
+
+      toast.success(`Synced ${syncData.ownerCount} owners and ${syncData.staffCount} staff to Neon DB`);
     } catch (error) {
       console.error('Error syncing to Neon:', error);
       toast.error('Failed to sync to Neon DB');

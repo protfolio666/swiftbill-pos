@@ -325,9 +325,9 @@ serve(async (req) => {
       // Get all data
       const { data: subscriptions } = await supabase.from('subscriptions').select('*');
       const { data: profiles } = await supabase.from('profiles').select('*');
-      const { data: allStaff } = await supabase.from('staff_members').select('user_id, owner_id, role');
+      const { data: allStaff } = await supabase.from('staff_members').select('*');
 
-      // Filter to only owners
+      // Filter to only owners for users table
       const ownerUserIds = new Set(allStaff?.filter(s => s.role === 'owner').map(s => s.user_id) || []);
       const allStaffUserIds = new Set(allStaff?.map(s => s.user_id) || []);
 
@@ -356,9 +356,36 @@ serve(async (req) => {
           };
         });
 
-      console.log('Full sync to Neon - owners count:', ownersToSync.length);
+      // Prepare staff data with restaurant info
+      const staffToSync = (allStaff || []).map(staff => {
+        // Find the owner's profile to get restaurant name
+        const ownerProfile = profiles?.find(p => p.user_id === staff.owner_id);
+        // Find owner's auth user to get email
+        const ownerAuth = authUsers.users.find(u => u.id === staff.owner_id);
+        
+        return {
+          id: staff.id,
+          user_id: staff.user_id,
+          owner_id: staff.owner_id,
+          name: staff.name,
+          phone: staff.phone || null,
+          role: staff.role,
+          restaurant_name: ownerProfile?.restaurant_name || null,
+          owner_email: ownerAuth?.email || null,
+          is_active: staff.is_active ?? true,
+          chef_status: staff.chef_status || 'offline'
+        };
+      });
 
-      return new Response(JSON.stringify({ success: true, owners: ownersToSync, count: ownersToSync.length }), {
+      console.log('Full sync to Neon - owners:', ownersToSync.length, 'staff:', staffToSync.length);
+
+      return new Response(JSON.stringify({ 
+        success: true, 
+        owners: ownersToSync, 
+        staff: staffToSync,
+        ownerCount: ownersToSync.length,
+        staffCount: staffToSync.length
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
