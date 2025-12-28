@@ -123,12 +123,9 @@ export function OrderHistory() {
     return message;
   };
 
-  // Send receipt via WhatsApp
-  const sendWhatsApp = (order: Order) => {
-    if (!order.customerPhone) {
-      toast.error('No phone number available for this order');
-      return;
-    }
+  // Generate WhatsApp URL for an order
+  const getWhatsAppUrl = (order: Order): string => {
+    if (!order.customerPhone) return '';
     
     // Clean phone number - remove spaces and special characters
     let phone = order.customerPhone.replace(/[\s\-\(\)]/g, '');
@@ -145,10 +142,7 @@ export function OrderHistory() {
     }
     
     const message = encodeURIComponent(generateWhatsAppMessage(order));
-    const whatsappUrl = `https://wa.me/${phone}?text=${message}`;
-    
-    window.open(whatsappUrl, '_blank');
-    toast.success('Opening WhatsApp...');
+    return `https://wa.me/${phone}?text=${message}`;
   };
 
   const exportToCSV = () => {
@@ -868,15 +862,15 @@ export function OrderHistory() {
                           </Button>
 
                           {order.customerPhone && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => sendWhatsApp(order)}
-                              className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50 border-green-200"
+                            <a
+                              href={getWhatsAppUrl(order)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center justify-center gap-1 h-8 px-3 text-sm font-medium rounded-md border text-green-600 hover:text-green-700 hover:bg-green-50 border-green-200 transition-colors"
                             >
                               <MessageCircle className="w-4 h-4" />
                               <span className="hidden sm:inline">WhatsApp</span>
-                            </Button>
+                            </a>
                           )}
 
                           <button onClick={() => toggleExpanded(order.id)}>
@@ -898,15 +892,15 @@ export function OrderHistory() {
                                 <div className="flex items-center justify-between mb-1">
                                   <p className="text-xs font-medium text-muted-foreground">Customer Details</p>
                                   {order.customerPhone && (
-                                    <Button
-                                      variant="ghost"
-                                      size="sm"
-                                      onClick={() => sendWhatsApp(order)}
-                                      className="h-6 px-2 text-green-600 hover:text-green-700 hover:bg-green-50 gap-1"
+                                    <a
+                                      href={getWhatsAppUrl(order)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center h-6 px-2 text-xs font-medium text-green-600 hover:text-green-700 hover:bg-green-50 rounded gap-1 transition-colors"
                                     >
                                       <MessageCircle className="w-3 h-3" />
-                                      <span className="text-xs">Send Receipt</span>
-                                    </Button>
+                                      <span>Send Receipt</span>
+                                    </a>
                                   )}
                                 </div>
                                 {order.customerName && (
