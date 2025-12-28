@@ -169,6 +169,9 @@ export function useKOT() {
 
       // Call edge function to create staff (uses admin API, doesn't affect current session)
       const response = await supabase.functions.invoke('create-staff', {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
         body: {
           email,
           password,
