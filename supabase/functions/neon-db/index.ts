@@ -22,47 +22,48 @@ serve(async (req) => {
     // Get user from auth header
     const authHeader = req.headers.get('authorization');
     let userId: string | null = null;
-    let effectiveUserId: string | null = null; // This will be owner_id for staff
+    let effectiveUserId: string | null = null; // owner_id for staff
 
-    if (authHeader) {
+    const token = authHeader?.replace('Bearer ', '') ?? null;
+
+    if (token) {
       const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
       const supabaseKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      
-      const token = authHeader.replace('Bearer ', '');
+      const supabase = createClient(supabaseUrl, supabaseKey, {
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      });
+
       const { data: { user }, error } = await supabase.auth.getUser(token);
-      
+
       if (!error && user) {
         userId = user.id;
+
+        // IMPORTANT: Determine owner_id from the main app database (not Neon DB)
+        const { data: staffData } = await supabase
+          .from('staff_members')
+          .select('owner_id, role')
+          .eq('user_id', userId)
+          .maybeSingle();
+
+        if (staffData && staffData.role !== 'owner') {
+          effectiveUserId = staffData.owner_id;
+          console.log(`Staff user ${userId} (role: ${staffData.role}) using owner_id: ${effectiveUserId}`);
+        } else {
+          effectiveUserId = userId;
+        }
       }
     }
 
-    if (!userId) {
+    if (!userId || !effectiveUserId) {
       throw new Error('Authentication required');
     }
 
     const sql = neon(databaseUrl);
     const { action, data } = await req.json();
-
-    // Check if user is staff and get their owner_id
-    // Staff should see owner's data (menu items, categories, etc.)
-    const staffCheck = await sql`
-      SELECT owner_id, role FROM staff_members WHERE user_id = ${userId} LIMIT 1
-    `;
-    
-    if (staffCheck.length > 0) {
-      const staffRecord = staffCheck[0];
-      // For staff (non-owner), use owner_id to fetch restaurant data
-      if (staffRecord.role !== 'owner') {
-        effectiveUserId = staffRecord.owner_id;
-        console.log(`Staff user ${userId} (role: ${staffRecord.role}) using owner_id: ${effectiveUserId}`);
-      } else {
-        effectiveUserId = userId;
-      }
-    } else {
-      // Not staff yet - use their own user_id (might be new owner)
-      effectiveUserId = userId;
-    }
 
     let result;
 
