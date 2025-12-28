@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { thermalPrinter, PrinterConnectionType, PrinterPaperWidth } from '@/services/thermalPrinter';
@@ -75,8 +75,22 @@ export function PrinterSettings() {
   const handleConnect = async () => {
     setIsConnecting(true);
     try {
+      const isEmbeddedPreview = (() => {
+        try {
+          return window.self !== window.top;
+        } catch {
+          return true;
+        }
+      })();
+
+      // In embedded previews, browser permission policies often block Serial/Bluetooth.
+      if (isEmbeddedPreview && (connectionType === 'usb' || connectionType === 'bluetooth')) {
+        toast.error('Printer connection is blocked in preview. Open the app in a new tab or after publish to connect.');
+        return;
+      }
+
       let success = false;
-      
+
       switch (connectionType) {
         case 'usb':
           if (!thermalPrinter.isSerialSupported()) {
@@ -85,7 +99,7 @@ export function PrinterSettings() {
           }
           success = await thermalPrinter.connectUSB();
           break;
-          
+
         case 'bluetooth':
           if (!thermalPrinter.isBluetoothSupported()) {
             toast.error('Bluetooth printing is not supported in this browser');
@@ -93,7 +107,7 @@ export function PrinterSettings() {
           }
           success = await thermalPrinter.connectBluetooth();
           break;
-          
+
         case 'network':
           if (!networkIp) {
             toast.error('Please enter the printer IP address');
@@ -107,11 +121,12 @@ export function PrinterSettings() {
         toast.success('Printer connected successfully!');
         savePreferences();
       }
-      
+
       setPrinterState(getPrinterState());
-    } catch (error) {
+    } catch (error: any) {
       console.error('Connection error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to connect printer');
+      const msg = typeof error?.message === 'string' ? error.message : 'Failed to connect printer';
+      toast.error(msg);
     } finally {
       setIsConnecting(false);
     }
@@ -181,42 +196,28 @@ export function PrinterSettings() {
           {/* Connection Type */}
           <div className="space-y-3">
             <Label>Connection Type</Label>
-            <RadioGroup
-              value={connectionType}
-              onValueChange={(val) => setConnectionType(val as PrinterConnectionType)}
-              className="grid grid-cols-3 gap-3"
-            >
-              <div>
-                <RadioGroupItem value="usb" id="usb" className="peer sr-only" />
-                <Label
-                  htmlFor="usb"
-                  className="flex flex-col items-center justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-                >
-                  <Usb className="mb-2 h-6 w-6" />
-                  <span className="text-sm font-medium">USB</span>
-                </Label>
-              </div>
-              <div>
-                <RadioGroupItem value="bluetooth" id="bluetooth" className="peer sr-only" />
-                <Label
-                  htmlFor="bluetooth"
-                  className="flex flex-col items-center justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-                >
-                  <Bluetooth className="mb-2 h-6 w-6" />
-                  <span className="text-sm font-medium">Bluetooth</span>
-                </Label>
-              </div>
-              <div>
-                <RadioGroupItem value="network" id="network" className="peer sr-only" />
-                <Label
-                  htmlFor="network"
-                  className="flex flex-col items-center justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-                >
-                  <Wifi className="mb-2 h-6 w-6" />
-                  <span className="text-sm font-medium">Network</span>
-                </Label>
-              </div>
-            </RadioGroup>
+            <Select value={connectionType} onValueChange={(val) => setConnectionType(val as PrinterConnectionType)}>
+              <SelectTrigger className="h-11">
+                <SelectValue placeholder="Select connection type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="usb">
+                  <span className="inline-flex items-center gap-2">
+                    <Usb className="h-4 w-4" /> USB
+                  </span>
+                </SelectItem>
+                <SelectItem value="bluetooth" disabled={!thermalPrinter.isBluetoothSupported()}>
+                  <span className="inline-flex items-center gap-2">
+                    <Bluetooth className="h-4 w-4" /> Bluetooth
+                  </span>
+                </SelectItem>
+                <SelectItem value="network">
+                  <span className="inline-flex items-center gap-2">
+                    <Wifi className="h-4 w-4" /> Network
+                  </span>
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Network Settings */}
@@ -246,7 +247,7 @@ export function PrinterSettings() {
           {/* Paper Width */}
           <div className="space-y-3">
             <Label>Paper Width</Label>
-            <RadioGroup
+            <Select
               value={paperWidth}
               onValueChange={(val) => {
                 setPaperWidth(val as PrinterPaperWidth);
@@ -256,29 +257,15 @@ export function PrinterSettings() {
                   console.error('Failed to set paper width:', e);
                 }
               }}
-              className="grid grid-cols-2 gap-3"
             >
-              <div>
-                <RadioGroupItem value="58mm" id="58mm" className="peer sr-only" />
-                <Label
-                  htmlFor="58mm"
-                  className="flex flex-col items-center justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-                >
-                  <span className="text-lg font-bold">58mm</span>
-                  <span className="text-xs text-muted-foreground">2 inch / 32 chars</span>
-                </Label>
-              </div>
-              <div>
-                <RadioGroupItem value="80mm" id="80mm" className="peer sr-only" />
-                <Label
-                  htmlFor="80mm"
-                  className="flex flex-col items-center justify-between rounded-xl border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
-                >
-                  <span className="text-lg font-bold">80mm</span>
-                  <span className="text-xs text-muted-foreground">3 inch / 48 chars</span>
-                </Label>
-              </div>
-            </RadioGroup>
+              <SelectTrigger className="h-11">
+                <SelectValue placeholder="Select paper width" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="58mm">58mm (2 inch / 32 chars)</SelectItem>
+                <SelectItem value="80mm">80mm (3 inch / 48 chars)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Browser Support Info */}
