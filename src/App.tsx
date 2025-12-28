@@ -16,7 +16,7 @@ const queryClient = new QueryClient();
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, isLoading, hasActiveSubscription, isSubscriptionLoaded } = useAuth();
+  const { user, isLoading, hasActiveSubscription, isSubscriptionLoaded, isStaffMember } = useAuth();
 
   // Block rendering until we know whether the user is logged in AND (if logged in) their subscription has been checked.
   if (isLoading || (user && !isSubscriptionLoaded)) {
@@ -34,6 +34,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/auth" replace />;
   }
 
+  // Staff members with active owner subscription can access
+  // hasActiveSubscription is already checked against owner for staff
   if (!hasActiveSubscription) {
     return <Navigate to="/auth" replace />;
   }
