@@ -41,6 +41,8 @@ export interface BrandSettings {
   upiId?: string;
   gstin?: string;
   showGstOnReceipt: boolean;
+  zapierWebhookUrl?: string;
+  enableAutoWhatsApp?: boolean;
 }
 
 export type Category = {

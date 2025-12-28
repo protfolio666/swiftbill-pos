@@ -58,6 +58,8 @@ const defaultBrand: BrandSettings = {
   upiId: '',
   gstin: '',
   showGstOnReceipt: false,
+  zapierWebhookUrl: '',
+  enableAutoWhatsApp: false,
 };
 
 // Get the current user ID from localStorage to make storage user-specific
