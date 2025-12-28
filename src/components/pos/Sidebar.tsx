@@ -9,29 +9,32 @@ import {
   ChevronRight,
   History,
   LogOut,
-  Shield
+  Shield,
+  ChefHat,
+  ClipboardList
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { usePOSStore } from '@/stores/posStore';
+import { StaffRole } from '@/types/kot';
 
 interface SidebarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  role?: StaffRole | null;
+  isKOTEnabled?: boolean;
+  permissions?: {
+    canViewReports: boolean;
+    canManageSettings: boolean;
+    canViewKOT: boolean;
+    canPlaceOrders: boolean;
+  };
 }
 
 const ADMIN_EMAIL = 'bsnlsdp3600@gmail.com';
 
-const navItems = [
-  { id: 'pos', label: 'POS', icon: ShoppingCart },
-  { id: 'orders', label: 'Orders', icon: History },
-  { id: 'menu', label: 'Menu', icon: UtensilsCrossed },
-  { id: 'inventory', label: 'Inventory', icon: Package },
-  { id: 'settings', label: 'Settings', icon: Settings },
-];
-
-export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
+export function Sidebar({ activeTab, onTabChange, role, isKOTEnabled, permissions }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false);
   const { brand } = usePOSStore();
   const { signOut, profile, user } = useAuth();
@@ -43,6 +46,46 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
     await signOut();
     toast.success('Logged out successfully');
   };
+
+  // Build nav items based on role and KOT status
+  const getNavItems = () => {
+    // Chef-specific navigation
+    if (isKOTEnabled && role === 'chef') {
+      return [
+        { id: 'chef', label: 'Kitchen', icon: ChefHat },
+        { id: 'settings', label: 'Settings', icon: Settings },
+      ];
+    }
+
+    // Waiter-specific navigation
+    if (isKOTEnabled && role === 'waiter') {
+      return [
+        { id: 'pos', label: 'POS', icon: ShoppingCart },
+        { id: 'waiter', label: 'My Orders', icon: ClipboardList },
+      ];
+    }
+
+    // Owner/Manager navigation
+    const items = [
+      { id: 'pos', label: 'POS', icon: ShoppingCart },
+      { id: 'orders', label: 'Orders', icon: History },
+    ];
+
+    // Add KOT tab if enabled
+    if (isKOTEnabled && permissions?.canViewKOT) {
+      items.push({ id: 'kot', label: 'Kitchen', icon: ChefHat });
+    }
+
+    items.push(
+      { id: 'menu', label: 'Menu', icon: UtensilsCrossed },
+      { id: 'inventory', label: 'Inventory', icon: Package },
+      { id: 'settings', label: 'Settings', icon: Settings }
+    );
+
+    return items;
+  };
+
+  const navItems = getNavItems();
 
   return (
     <aside
@@ -64,7 +107,13 @@ export function Sidebar({ activeTab, onTabChange }: SidebarProps) {
           {!collapsed && (
             <div className="animate-fade-in overflow-hidden flex-1 min-w-0">
               <h1 className="font-bold text-foreground truncate text-sm">{profile?.restaurant_name || brand.name}</h1>
-              <p className="text-[10px] text-muted-foreground truncate">{profile?.owner_name || 'POS System'}</p>
+              <p className="text-[10px] text-muted-foreground truncate">
+                {role && isKOTEnabled ? (
+                  <span className="capitalize">{role}</span>
+                ) : (
+                  profile?.owner_name || 'POS System'
+                )}
+              </p>
             </div>
           )}
         </div>

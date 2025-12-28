@@ -10,6 +10,7 @@ import { useNeon } from '@/contexts/NeonContext';
 import QRCode from 'qrcode';
 import { thermalPrinter, PrintOrderData } from '@/services/thermalPrinter';
 import { triggerWebhook } from '@/services/webhookService';
+import { useKOT } from '@/hooks/useKOT';
 
 // Generate UPI payment link
 const generateUpiLink = (upiId: string, name: string, amount: number, orderId: string) => {
@@ -25,6 +26,7 @@ export function Cart() {
     setDiscount, setOrderType, setTableNumber, setCustomerName, setCustomerPhone 
   } = usePOSStore();
   const { saveOrder } = useNeon();
+  const { isKOTEnabled, createKOTOrder } = useKOT();
   const [discountInput, setDiscountInput] = useState(discount.toString());
   const [localDiscountType, setLocalDiscountType] = useState<'percentage' | 'fixed'>(discountType);
   const [lastOrder, setLastOrder] = useState<Order | null>(null);
@@ -421,6 +423,28 @@ export function Cart() {
       setLastOrder(order);
       // Save to Neon DB
       await saveOrder(order);
+
+      // If KOT is enabled, create KOT order for kitchen
+      if (isKOTEnabled) {
+        const kotItems = cart.map(item => ({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+        }));
+
+        await createKOTOrder({
+          order_id: order.id,
+          items: kotItems,
+          table_number: tableNumber || undefined,
+          customer_name: customerName || undefined,
+        });
+
+        toast.success(`Order sent to kitchen! #${order.id}`, {
+          description: `Total: ${brand.currency}${order.total.toFixed(2)}`,
+        });
+        return;
+      }
       
       // Trigger webhook for automatic WhatsApp (Zapier)
       if (brand.enableAutoWhatsApp && brand.zapierWebhookUrl && order.customerPhone) {

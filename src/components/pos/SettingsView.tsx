@@ -14,6 +14,9 @@ import { useNeon } from '@/contexts/NeonContext';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
 import { PrinterSettings } from './PrinterSettings';
+import { KOTSettings } from './KOTSettings';
+import { StaffManagement } from './StaffManagement';
+import { useKOT } from '@/hooks/useKOT';
 
 declare global {
   interface Window {
@@ -743,6 +746,12 @@ export function SettingsView() {
           </div>
         </div>
       </div>
+
+      {/* KOT Settings - Only for owners */}
+      <KOTSettings />
+
+      {/* Staff Management - Only for owners */}
+      <StaffManagement />
     </div>
   );
 }
