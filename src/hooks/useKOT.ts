@@ -145,7 +145,7 @@ export function useKOT() {
     setKotOrders(orders);
   }, [ownerId, isKOTEnabled]);
 
-  // Create staff member
+  // Create staff member via edge function
   const createStaff = async (
     email: string,
     password: string,
@@ -159,39 +159,32 @@ export function useKOT() {
     }
 
     try {
-      // Create auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          data: {
-            owner_name: name,
-            staff_role: staffRole,
-          },
+      // Get session token
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+
+      if (!token) {
+        throw new Error('No session found');
+      }
+
+      // Call edge function to create staff (uses admin API, doesn't affect current session)
+      const response = await supabase.functions.invoke('create-staff', {
+        body: {
+          email,
+          password,
+          name,
+          role: staffRole,
+          phone,
         },
       });
 
-      if (authError) throw authError;
-
-      if (!authData.user) {
-        throw new Error('Failed to create user');
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to create staff');
       }
 
-      // Create staff record
-      const { error: staffError } = await supabase
-        .from('staff_members')
-        .insert({
-          user_id: authData.user.id,
-          owner_id: user.id,
-          role: staffRole,
-          name,
-          phone,
-          is_active: true,
-          chef_status: 'offline',
-        });
-
-      if (staffError) throw staffError;
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
 
       toast.success(`${name} added as ${staffRole}`);
       await fetchStaffList();
