@@ -19,29 +19,38 @@ import { Button } from '@/components/ui/button';
 import { usePOSStore } from '@/stores/posStore';
 
 const Index = () => {
-  const [activeTab, setActiveTab] = useState('pos');
-  const [mobileCartOpen, setMobileCartOpen] = useState(false);
   const { isLoading, isOnline, syncError, refresh } = useNeon();
-  const { isTrialActive, trialDaysRemaining, subscription } = useAuth();
+  const { isTrialActive, trialDaysRemaining, subscription, staffInfo, isStaffMember } = useAuth();
   const { brand } = usePOSStore();
-  const { staffMember, isKOTEnabled, permissions, isLoading: kotLoading } = useKOT();
+  const { isKOTEnabled, permissions, isLoading: kotLoading } = useKOT();
 
-  const role = staffMember?.role;
+  // Use staffInfo from AuthContext (already loaded) for immediate role detection
+  const role = staffInfo?.role || null;
 
-  // Set default tab based on role when KOT is enabled
+  // Set initial tab based on role IMMEDIATELY using staffInfo from AuthContext
+  const getInitialTab = () => {
+    if (role === 'chef') return 'chef';
+    if (role === 'waiter') return 'pos';
+    return 'pos';
+  };
+
+  const [activeTab, setActiveTab] = useState(getInitialTab);
+  const [mobileCartOpen, setMobileCartOpen] = useState(false);
+
+  // Update tab if role changes after initial load
   useEffect(() => {
-    if (kotLoading || !isKOTEnabled) return;
-
-    if (role === 'chef') {
+    if (!role) return;
+    
+    if (role === 'chef' && activeTab !== 'chef' && activeTab !== 'settings') {
       setActiveTab('chef');
-    } else if (role === 'waiter') {
+    } else if (role === 'waiter' && activeTab !== 'pos' && activeTab !== 'waiter') {
       setActiveTab('pos');
     }
-  }, [role, isKOTEnabled, kotLoading]);
+  }, [role]);
 
   const renderContent = () => {
-    // If KOT is enabled and user is a chef, show chef dashboard
-    if (isKOTEnabled && role === 'chef') {
+    // If user is a chef, show chef dashboard
+    if (role === 'chef') {
       switch (activeTab) {
         case 'chef':
           return <ChefDashboard />;
@@ -52,8 +61,8 @@ const Index = () => {
       }
     }
 
-    // If KOT is enabled and user is a waiter, limit their views
-    if (isKOTEnabled && role === 'waiter') {
+    // If user is a waiter, limit their views (no settings)
+    if (role === 'waiter') {
       switch (activeTab) {
         case 'pos':
           return <POSView onCartOpen={() => setMobileCartOpen(true)} />;
@@ -64,7 +73,7 @@ const Index = () => {
       }
     }
 
-    // Default views for owner/manager or when KOT is disabled
+    // Default views for owner/manager
     switch (activeTab) {
       case 'pos':
         return <POSView onCartOpen={() => setMobileCartOpen(true)} />;
@@ -128,8 +137,8 @@ const Index = () => {
           </div>
         )}
         
-        {/* Trial Banner - only show for trial plans */}
-        {isTrialActive && subscription?.plan_name === 'trial' && (
+        {/* Trial Banner - only show for trial plans and not for staff */}
+        {!isStaffMember && isTrialActive && subscription?.plan_name === 'trial' && (
           <div className="bg-gradient-to-r from-amber-500 to-orange-500 text-white px-3 py-1.5 flex items-center justify-between shrink-0 safe-area-top">
             <div className="flex items-center gap-2">
               <Clock className="h-3.5 w-3.5" />

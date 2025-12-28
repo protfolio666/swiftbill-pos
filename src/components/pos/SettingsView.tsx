@@ -86,8 +86,15 @@ const SUBSCRIPTION_PLANS = [
 export function SettingsView() {
   const { brand, setBrand } = usePOSStore();
   const { saveBrandSettings } = useNeon();
-  const { user, subscription, isTrialActive, trialDaysRemaining, hasActiveSubscription, refreshSubscription } = useAuth();
+  const { user, subscription, isTrialActive, trialDaysRemaining, hasActiveSubscription, refreshSubscription, staffInfo, isStaffMember } = useAuth();
   const navigate = useNavigate();
+  
+  // Check if user is owner (has full access)
+  const isOwner = staffInfo?.role === 'owner' || !isStaffMember;
+  // Manager has limited access (no subscription, no staff management)
+  const isManager = staffInfo?.role === 'manager';
+  // Chef has very limited access
+  const isChef = staffInfo?.role === 'chef';
   const [isSaving, setIsSaving] = useState(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   const [formData, setFormData] = useState({
@@ -290,194 +297,198 @@ export function SettingsView() {
         <p className="text-muted-foreground">Customize your restaurant branding and preferences</p>
       </div>
 
-      {/* Subscription Card */}
-      <div className="bg-card rounded-2xl border border-border p-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center">
-            <Crown className="w-5 h-5 text-white" />
+      {/* Subscription Card - Only for owners */}
+      {isOwner && (
+        <div className="bg-card rounded-2xl border border-border p-6 space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-500 flex items-center justify-center">
+              <Crown className="w-5 h-5 text-white" />
+            </div>
+            <div className="flex-1">
+              <h2 className="font-semibold text-lg text-foreground">Subscription</h2>
+              <p className="text-sm text-muted-foreground">Manage your plan</p>
+            </div>
+            {getPlanBadge()}
           </div>
-          <div className="flex-1">
-            <h2 className="font-semibold text-lg text-foreground">Subscription</h2>
-            <p className="text-sm text-muted-foreground">Manage your plan</p>
-          </div>
-          {getPlanBadge()}
-        </div>
 
-        {/* Current Plan Info */}
-        <div className="p-4 bg-secondary/50 rounded-xl space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Current Plan</span>
-            <span className="font-medium capitalize">{subscription?.plan_name || 'None'}</span>
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Status</span>
-            <span className={`font-medium ${hasActiveSubscription ? 'text-green-500' : 'text-red-500'}`}>
-              {hasActiveSubscription ? 'Active' : 'Expired'}
-            </span>
-          </div>
-          {subscription?.valid_until && (
+          {/* Current Plan Info */}
+          <div className="p-4 bg-secondary/50 rounded-xl space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">Valid Until</span>
-              <span className="font-medium">
-                {subscription.plan_name === 'lifetime' ? 'Forever' : format(new Date(subscription.valid_until), 'MMM dd, yyyy')}
+              <span className="text-sm text-muted-foreground">Current Plan</span>
+              <span className="font-medium capitalize">{subscription?.plan_name || 'None'}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-muted-foreground">Status</span>
+              <span className={`font-medium ${hasActiveSubscription ? 'text-green-500' : 'text-red-500'}`}>
+                {hasActiveSubscription ? 'Active' : 'Expired'}
               </span>
             </div>
-          )}
-          {isTrialActive && (
-            <div className="flex items-center gap-2 p-3 bg-amber-500/10 rounded-lg mt-2">
-              <Clock className="h-4 w-4 text-amber-500" />
-              <span className="text-sm text-amber-600 dark:text-amber-400">
-                <strong>{trialDaysRemaining} days</strong> remaining in your free trial
-              </span>
-            </div>
-          )}
-        </div>
+            {subscription?.valid_until && (
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Valid Until</span>
+                <span className="font-medium">
+                  {subscription.plan_name === 'lifetime' ? 'Forever' : format(new Date(subscription.valid_until), 'MMM dd, yyyy')}
+                </span>
+              </div>
+            )}
+            {isTrialActive && (
+              <div className="flex items-center gap-2 p-3 bg-amber-500/10 rounded-lg mt-2">
+                <Clock className="h-4 w-4 text-amber-500" />
+                <span className="text-sm text-amber-600 dark:text-amber-400">
+                  <strong>{trialDaysRemaining} days</strong> remaining in your free trial
+                </span>
+              </div>
+            )}
+          </div>
 
-        {/* Upgrade Options */}
-        {(isTrialActive || !hasActiveSubscription || subscription?.plan_name === 'trial') && subscription?.plan_name !== 'lifetime' && (
-          <div className="space-y-4">
-            <h3 className="font-medium text-foreground">Upgrade Your Plan</h3>
-            <div className="grid gap-4">
-              {SUBSCRIPTION_PLANS.map((plan) => (
-                <div 
-                  key={plan.id}
-                  className={`p-4 rounded-xl border-2 transition-all ${
-                    plan.popular 
-                      ? 'border-orange-500 bg-orange-500/5' 
-                      : 'border-border hover:border-primary/50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold">{plan.name}</span>
-                        {plan.popular && (
-                          <Badge className="bg-orange-500 text-xs">Best Value</Badge>
-                        )}
-                      </div>
-                      <span className="text-sm text-muted-foreground">{plan.duration}</span>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-2xl font-bold">₹{plan.price}</span>
-                    </div>
-                  </div>
-                  <ul className="space-y-1 mb-4">
-                    {plan.features.map((feature, idx) => (
-                      <li key={idx} className="flex items-center gap-2 text-sm">
-                        <Check className="h-4 w-4 text-green-500" />
-                        <span>{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <Button 
-                    onClick={() => handlePayment(plan)}
-                    disabled={isPaymentLoading}
-                    className={`w-full ${plan.popular ? 'bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600' : ''}`}
-                    variant={plan.popular ? 'default' : 'outline'}
+          {/* Upgrade Options */}
+          {(isTrialActive || !hasActiveSubscription || subscription?.plan_name === 'trial') && subscription?.plan_name !== 'lifetime' && (
+            <div className="space-y-4">
+              <h3 className="font-medium text-foreground">Upgrade Your Plan</h3>
+              <div className="grid gap-4">
+                {SUBSCRIPTION_PLANS.map((plan) => (
+                  <div 
+                    key={plan.id}
+                    className={`p-4 rounded-xl border-2 transition-all ${
+                      plan.popular 
+                        ? 'border-orange-500 bg-orange-500/5' 
+                        : 'border-border hover:border-primary/50'
+                    }`}
                   >
-                    {isPaymentLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <CreditCard className="mr-2 h-4 w-4" />
-                        {isTrialActive ? 'Upgrade Now' : 'Subscribe'}
-                      </>
-                    )}
-                  </Button>
-                </div>
-              ))}
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold">{plan.name}</span>
+                          {plan.popular && (
+                            <Badge className="bg-orange-500 text-xs">Best Value</Badge>
+                          )}
+                        </div>
+                        <span className="text-sm text-muted-foreground">{plan.duration}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-2xl font-bold">₹{plan.price}</span>
+                      </div>
+                    </div>
+                    <ul className="space-y-1 mb-4">
+                      {plan.features.map((feature, idx) => (
+                        <li key={idx} className="flex items-center gap-2 text-sm">
+                          <Check className="h-4 w-4 text-green-500" />
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <Button 
+                      onClick={() => handlePayment(plan)}
+                      disabled={isPaymentLoading}
+                      className={`w-full ${plan.popular ? 'bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600' : ''}`}
+                      variant={plan.popular ? 'default' : 'outline'}
+                    >
+                      {isPaymentLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard className="mr-2 h-4 w-4" />
+                          {isTrialActive ? 'Upgrade Now' : 'Subscribe'}
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Already subscribed message */}
-        {hasActiveSubscription && subscription?.plan_name !== 'trial' && (
-          <div className="p-4 bg-green-500/10 rounded-xl flex items-center gap-3">
-            <Check className="h-5 w-5 text-green-500" />
-            <span className="text-green-600 dark:text-green-400">
-              {subscription?.plan_name === 'lifetime' 
-                ? "You have a Lifetime subscription. Thank you!"
-                : <>You're on the <strong className="capitalize">{subscription?.plan_name}</strong> plan. Thank you for your support!</>
-              }
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Brand Settings Card */}
-      <div className="bg-card rounded-2xl border border-border p-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl pos-gradient flex items-center justify-center">
-            <Store className="w-5 h-5 text-primary-foreground" />
-          </div>
-          <h2 className="font-semibold text-lg text-foreground">Brand Settings</h2>
+          {/* Already subscribed message */}
+          {hasActiveSubscription && subscription?.plan_name !== 'trial' && (
+            <div className="p-4 bg-green-500/10 rounded-xl flex items-center gap-3">
+              <Check className="h-5 w-5 text-green-500" />
+              <span className="text-green-600 dark:text-green-400">
+                {subscription?.plan_name === 'lifetime' 
+                  ? "You have a Lifetime subscription. Thank you!"
+                  : <>You're on the <strong className="capitalize">{subscription?.plan_name}</strong> plan. Thank you for your support!</>
+                }
+              </span>
+            </div>
+          )}
         </div>
+      )}
 
-        {/* Logo Upload */}
-        <div className="space-y-3">
-          <Label>Restaurant Logo</Label>
-          <div className="flex items-center gap-4">
-            <div className="w-20 h-20 rounded-2xl border-2 border-dashed border-border bg-secondary/50 flex items-center justify-center overflow-hidden">
-              {formData.logo ? (
-                <img src={formData.logo} alt="Logo" className="w-full h-full object-cover" />
-              ) : (
-                <Upload className="w-8 h-8 text-muted-foreground" />
-              )}
+      {/* Brand Settings Card - Only for owners (restaurant name and logo restricted) */}
+      {isOwner && (
+        <div className="bg-card rounded-2xl border border-border p-6 space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl pos-gradient flex items-center justify-center">
+              <Store className="w-5 h-5 text-primary-foreground" />
             </div>
-            <div className="space-y-2">
-              <input
-                type="file"
-                id="logo-upload"
-                accept="image/*"
-                className="hidden"
-                onChange={handleLogoUpload}
-              />
-              <Button variant="outline" asChild>
-                <label htmlFor="logo-upload" className="cursor-pointer">
-                  Upload Logo
-                </label>
-              </Button>
-              {formData.logo && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setFormData({ ...formData, logo: '' })}
-                  className="text-destructive"
-                >
-                  Remove
+            <h2 className="font-semibold text-lg text-foreground">Brand Settings</h2>
+          </div>
+
+          {/* Logo Upload */}
+          <div className="space-y-3">
+            <Label>Restaurant Logo</Label>
+            <div className="flex items-center gap-4">
+              <div className="w-20 h-20 rounded-2xl border-2 border-dashed border-border bg-secondary/50 flex items-center justify-center overflow-hidden">
+                {formData.logo ? (
+                  <img src={formData.logo} alt="Logo" className="w-full h-full object-cover" />
+                ) : (
+                  <Upload className="w-8 h-8 text-muted-foreground" />
+                )}
+              </div>
+              <div className="space-y-2">
+                <input
+                  type="file"
+                  id="logo-upload"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleLogoUpload}
+                />
+                <Button variant="outline" asChild>
+                  <label htmlFor="logo-upload" className="cursor-pointer">
+                    Upload Logo
+                  </label>
                 </Button>
-              )}
+                {formData.logo && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setFormData({ ...formData, logo: '' })}
+                    className="text-destructive"
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Restaurant Name */}
-        <div className="space-y-2">
-          <Label htmlFor="name">Restaurant Name</Label>
-          <Input
-            id="name"
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-            placeholder="My Restaurant"
-          />
-        </div>
+          {/* Restaurant Name */}
+          <div className="space-y-2">
+            <Label htmlFor="name">Restaurant Name</Label>
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+              placeholder="My Restaurant"
+            />
+          </div>
 
-        {/* Currency */}
-        <div className="space-y-2">
-          <Label htmlFor="currency">Currency Symbol</Label>
-          <Input
-            id="currency"
-            value={formData.currency}
-            onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-            placeholder="₹"
-            maxLength={3}
-            className="w-24"
-          />
+          {/* Currency */}
+          <div className="space-y-2">
+            <Label htmlFor="currency">Currency Symbol</Label>
+            <Input
+              id="currency"
+              value={formData.currency}
+              onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+              placeholder="₹"
+              maxLength={3}
+              className="w-24"
+            />
+          </div>
         </div>
-      </div>
+      )}
 
       {/* UPI Payment Settings Card */}
       <div className="bg-card rounded-2xl border border-border p-6 space-y-6">
@@ -513,245 +524,176 @@ export function SettingsView() {
         )}
       </div>
 
-      {/* Tax Settings Card */}
-      <div className="bg-card rounded-2xl border border-border p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
-              <span className="text-lg font-bold text-green-600">GST</span>
-            </div>
-            <div>
-              <h2 className="font-semibold text-lg text-foreground">Tax Settings</h2>
-              <p className="text-sm text-muted-foreground">Configure GST or simple tax</p>
-            </div>
-          </div>
-        </div>
-
-        {/* GST Toggle */}
-        <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-xl">
-          <div>
-            <p className="font-medium text-foreground">Enable GST (CGST + SGST)</p>
-            <p className="text-sm text-muted-foreground">Split tax into CGST and SGST components</p>
-          </div>
-          <Switch
-            checked={formData.enableGST}
-            onCheckedChange={(checked) => setFormData({ ...formData, enableGST: checked })}
-          />
-        </div>
-
-        {formData.enableGST ? (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="cgstRate">CGST Rate (%)</Label>
-                <Input
-                  id="cgstRate"
-                  type="number"
-                  value={formData.cgstRate}
-                  onChange={(e) => setFormData({ ...formData, cgstRate: e.target.value })}
-                  placeholder="2.5"
-                  min="0"
-                  max="50"
-                  step="0.5"
-                />
+      {/* Tax Settings Card - Only for owners */}
+      {isOwner && (
+        <div className="bg-card rounded-2xl border border-border p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
+                <span className="text-lg font-bold text-green-600">GST</span>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="sgstRate">SGST Rate (%)</Label>
-                <Input
-                  id="sgstRate"
-                  type="number"
-                  value={formData.sgstRate}
-                  onChange={(e) => setFormData({ ...formData, sgstRate: e.target.value })}
-                  placeholder="2.5"
-                  min="0"
-                  max="50"
-                  step="0.5"
-                />
-              </div>
-            </div>
-            <div className="p-3 bg-green-500/10 rounded-lg">
-              <p className="text-sm text-green-700 dark:text-green-400">
-                Total GST: <span className="font-bold">{totalGST}%</span> (CGST {formData.cgstRate}% + SGST {formData.sgstRate}%)
-              </p>
-            </div>
-
-            {/* GSTIN Input */}
-            <div className="space-y-2">
-              <Label htmlFor="gstin">GSTIN Number</Label>
-              <Input
-                id="gstin"
-                value={formData.gstin}
-                onChange={(e) => setFormData({ ...formData, gstin: e.target.value.toUpperCase() })}
-                placeholder="22AAAAA0000A1Z5"
-                maxLength={15}
-              />
-            </div>
-
-            {/* Show GST on Receipt Toggle */}
-            <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-xl">
               <div>
-                <p className="font-medium text-foreground">Show GSTIN on Receipt</p>
-                <p className="text-sm text-muted-foreground">Display GSTIN number on printed bills</p>
+                <h2 className="font-semibold text-lg text-foreground">Tax Settings</h2>
+                <p className="text-sm text-muted-foreground">Configure GST or simple tax</p>
               </div>
-              <Switch
-                checked={formData.showGstOnReceipt}
-                onCheckedChange={(checked) => setFormData({ ...formData, showGstOnReceipt: checked })}
-                disabled={!formData.gstin}
-              />
             </div>
           </div>
-        ) : (
-          <div className="space-y-2">
-            <Label htmlFor="taxRate">Tax Rate (%)</Label>
-            <Input
-              id="taxRate"
-              type="number"
-              value={formData.taxRate}
-              onChange={(e) => setFormData({ ...formData, taxRate: e.target.value })}
-              placeholder="5"
-              min="0"
-              max="100"
-              className="w-32"
+
+          {/* GST Toggle */}
+          <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-xl">
+            <div>
+              <p className="font-medium text-foreground">Enable GST (CGST + SGST)</p>
+              <p className="text-sm text-muted-foreground">Split tax into CGST and SGST components</p>
+            </div>
+            <Switch
+              checked={formData.enableGST}
+              onCheckedChange={(checked) => setFormData({ ...formData, enableGST: checked })}
             />
           </div>
-        )}
 
-        <Button variant="pos" onClick={handleSave} className="w-full" disabled={isSaving}>
-          {isSaving ? 'Saving...' : 'Save Settings'}
-        </Button>
-      </div>
-
-      {/* WhatsApp Automation Card */}
-      <div className="bg-card rounded-2xl border border-border p-6 space-y-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
-            <MessageCircle className="w-5 h-5 text-green-600" />
-          </div>
-          <div>
-            <h2 className="font-semibold text-lg text-foreground">WhatsApp Automation</h2>
-            <p className="text-sm text-muted-foreground">Auto-send receipts via Zapier</p>
-          </div>
-        </div>
-
-        {/* Enable Auto WhatsApp Toggle */}
-        <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-xl">
-          <div>
-            <p className="font-medium text-foreground">Enable Auto WhatsApp</p>
-            <p className="text-sm text-muted-foreground">Send receipt automatically when order is placed</p>
-          </div>
-          <Switch
-            checked={formData.enableAutoWhatsApp}
-            onCheckedChange={(checked) => setFormData({ ...formData, enableAutoWhatsApp: checked })}
-          />
-        </div>
-
-        {formData.enableAutoWhatsApp && (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="zapierWebhookUrl">Zapier Webhook URL</Label>
-              <Input
-                id="zapierWebhookUrl"
-                value={formData.zapierWebhookUrl}
-                onChange={(e) => setFormData({ ...formData, zapierWebhookUrl: e.target.value })}
-                placeholder="https://hooks.zapier.com/hooks/catch/..."
-              />
-            </div>
-
-            <div className="p-4 bg-amber-500/10 rounded-xl space-y-3">
-              <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                📋 How to set up Zapier automation:
-              </p>
-              <ol className="text-sm text-amber-600 dark:text-amber-400 space-y-2 list-decimal list-inside">
-                <li>Go to <a href="https://zapier.com" target="_blank" rel="noopener noreferrer" className="underline">zapier.com</a> and create a free account</li>
-                <li>Create a new Zap with "Webhooks by Zapier" as trigger</li>
-                <li>Choose "Catch Hook" and copy the webhook URL here</li>
-                <li>Add "Twilio" or "WhatsApp Business" action to send message</li>
-                <li>Use the <code className="bg-amber-200/50 dark:bg-amber-800/50 px-1 rounded">whatsapp_message</code> field for the message content</li>
-              </ol>
-            </div>
-
-            {formData.zapierWebhookUrl && (
+          {formData.enableGST ? (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="cgstRate">CGST Rate (%)</Label>
+                  <Input
+                    id="cgstRate"
+                    type="number"
+                    value={formData.cgstRate}
+                    onChange={(e) => setFormData({ ...formData, cgstRate: e.target.value })}
+                    placeholder="2.5"
+                    min="0"
+                    max="50"
+                    step="0.5"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="sgstRate">SGST Rate (%)</Label>
+                  <Input
+                    id="sgstRate"
+                    type="number"
+                    value={formData.sgstRate}
+                    onChange={(e) => setFormData({ ...formData, sgstRate: e.target.value })}
+                    placeholder="2.5"
+                    min="0"
+                    max="50"
+                    step="0.5"
+                  />
+                </div>
+              </div>
               <div className="p-3 bg-green-500/10 rounded-lg">
                 <p className="text-sm text-green-700 dark:text-green-400">
-                  ✓ Webhook configured - receipts will be sent automatically
+                  Total GST: <span className="font-bold">{totalGST}%</span> (CGST {formData.cgstRate}% + SGST {formData.sgstRate}%)
                 </p>
               </div>
-            )}
+
+              {/* GSTIN Input */}
+              <div className="space-y-2">
+                <Label htmlFor="gstin">GSTIN Number</Label>
+                <Input
+                  id="gstin"
+                  value={formData.gstin}
+                  onChange={(e) => setFormData({ ...formData, gstin: e.target.value.toUpperCase() })}
+                  placeholder="22AAAAA0000A1Z5"
+                  maxLength={15}
+                />
+              </div>
+
+              {/* Show GST on Receipt Toggle */}
+              <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-xl">
+                <div>
+                  <p className="font-medium text-foreground">Show GSTIN on Receipt</p>
+                  <p className="text-sm text-muted-foreground">Display GSTIN number on printed bills</p>
+                </div>
+                <Switch
+                  checked={formData.showGstOnReceipt}
+                  onCheckedChange={(checked) => setFormData({ ...formData, showGstOnReceipt: checked })}
+                  disabled={!formData.gstin}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="taxRate">Tax Rate (%)</Label>
+              <Input
+                id="taxRate"
+                type="number"
+                value={formData.taxRate}
+                onChange={(e) => setFormData({ ...formData, taxRate: e.target.value })}
+                placeholder="5"
+                min="0"
+                max="100"
+                className="w-32"
+              />
+            </div>
+          )}
+
+          <Button variant="pos" onClick={handleSave} className="w-full" disabled={isSaving}>
+            {isSaving ? 'Saving...' : 'Save Settings'}
+          </Button>
+        </div>
+      )}
+
+      {/* WhatsApp Automation Card - Only for owners */}
+      {isOwner && (
+        <div className="bg-card rounded-2xl border border-border p-6 space-y-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
+              <MessageCircle className="w-5 h-5 text-green-600" />
+            </div>
+            <div>
+              <h2 className="font-semibold text-lg text-foreground">WhatsApp Automation</h2>
+              <p className="text-sm text-muted-foreground">Auto-send receipts via Zapier</p>
+            </div>
           </div>
-        )}
 
-        <Button variant="pos" onClick={handleSave} className="w-full" disabled={isSaving}>
-          {isSaving ? 'Saving...' : 'Save Settings'}
-        </Button>
-      </div>
+          <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-xl">
+            <div>
+              <p className="font-medium text-foreground">Enable Auto WhatsApp</p>
+              <p className="text-sm text-muted-foreground">Send receipt automatically when order is placed</p>
+            </div>
+            <Switch
+              checked={formData.enableAutoWhatsApp}
+              onCheckedChange={(checked) => setFormData({ ...formData, enableAutoWhatsApp: checked })}
+            />
+          </div>
 
-      {/* Printer Settings */}
+          {formData.enableAutoWhatsApp && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="zapierWebhookUrl">Zapier Webhook URL</Label>
+                <Input
+                  id="zapierWebhookUrl"
+                  value={formData.zapierWebhookUrl}
+                  onChange={(e) => setFormData({ ...formData, zapierWebhookUrl: e.target.value })}
+                  placeholder="https://hooks.zapier.com/hooks/catch/..."
+                />
+              </div>
+
+              {formData.zapierWebhookUrl && (
+                <div className="p-3 bg-green-500/10 rounded-lg">
+                  <p className="text-sm text-green-700 dark:text-green-400">
+                    ✓ Webhook configured - receipts will be sent automatically
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <Button variant="pos" onClick={handleSave} className="w-full" disabled={isSaving}>
+            {isSaving ? 'Saving...' : 'Save Settings'}
+          </Button>
+        </div>
+      )}
+
+      {/* Printer Settings - Available to all staff */}
       <PrinterSettings />
 
-      {/* Preview Card */}
-      <div className="bg-card rounded-2xl border border-border p-6 space-y-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
-            <Receipt className="w-5 h-5 text-muted-foreground" />
-          </div>
-          <h2 className="font-semibold text-lg text-foreground">Bill Preview</h2>
-        </div>
-
-        <div className="bg-background rounded-xl p-4 border border-border">
-          <div className="text-center space-y-2 pb-4 border-b border-dashed border-border">
-            {formData.logo && (
-              <img src={formData.logo} alt="Logo" className="w-12 h-12 mx-auto object-contain" />
-            )}
-            <h3 className="font-bold text-lg text-foreground">{formData.name || 'Restaurant Name'}</h3>
-            <p className="text-xs text-muted-foreground">Thank you for dining with us!</p>
-          </div>
-          <div className="py-4 space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Sample Item x2</span>
-              <span className="text-foreground">{formData.currency}100.00</span>
-            </div>
-            <div className="flex justify-between text-green-600">
-              <span>Discount (10%)</span>
-              <span>-{formData.currency}10.00</span>
-            </div>
-            {formData.enableGST ? (
-              <>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">CGST ({formData.cgstRate}%)</span>
-                  <span className="text-foreground">{formData.currency}{(90 * parseFloat(formData.cgstRate || '0') / 100).toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">SGST ({formData.sgstRate}%)</span>
-                  <span className="text-foreground">{formData.currency}{(90 * parseFloat(formData.sgstRate || '0') / 100).toFixed(2)}</span>
-                </div>
-              </>
-            ) : (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Tax ({formData.taxRate}%)</span>
-                <span className="text-foreground">{formData.currency}{(90 * parseFloat(formData.taxRate || '0') / 100).toFixed(2)}</span>
-              </div>
-            )}
-          </div>
-          <div className="pt-4 border-t border-dashed border-border">
-            <div className="flex justify-between font-bold">
-              <span className="text-foreground">Total</span>
-              <span className="text-primary">
-                {formData.currency}
-                {formData.enableGST 
-                  ? (90 + 90 * totalGST / 100).toFixed(2)
-                  : (90 + 90 * parseFloat(formData.taxRate || '0') / 100).toFixed(2)
-                }
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* KOT Settings - Only for owners */}
-      <KOTSettings />
+      {isOwner && <KOTSettings />}
 
       {/* Staff Management - Only for owners */}
-      <StaffManagement />
+      {isOwner && <StaffManagement />}
     </div>
   );
 }
