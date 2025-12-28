@@ -104,8 +104,10 @@ const Auth = () => {
   } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
-  const [showSubscription, setShowSubscription] = useState(false);
-  const [pendingUser, setPendingUser] = useState<{ email: string } | null>(null);
+
+  const shouldShowSubscription = !!user && isSubscriptionLoaded && !hasActiveSubscription;
+  const isAuthTransitionLoading = !!user && !isSubscriptionLoaded;
+
 
   // Login form state
   const [loginEmail, setLoginEmail] = useState('');
@@ -117,22 +119,14 @@ const Auth = () => {
   const [restaurantName, setRestaurantName] = useState('');
   const [ownerName, setOwnerName] = useState('');
 
-  // Check if user is logged in and has subscription
+  // Redirect authenticated + active users straight into the app.
+  // IMPORTANT: wait until subscription status is loaded to avoid any UI flashes.
   useEffect(() => {
-    if (!user) {
-      setShowSubscription(false);
-      setPendingUser(null);
-      return;
-    }
-
-    // IMPORTANT: wait until subscription status is actually loaded
+    if (!user) return;
     if (!isSubscriptionLoaded) return;
 
     if (hasActiveSubscription) {
       navigate('/');
-    } else {
-      setShowSubscription(true);
-      setPendingUser({ email: user.email || '' });
     }
   }, [user, isSubscriptionLoaded, hasActiveSubscription, navigate]);
 
@@ -281,7 +275,18 @@ const Auth = () => {
     }
   };
 
-  if (showSubscription && user && isSubscriptionLoaded) {
+  if (isAuthTransitionLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 dark:from-zinc-950 dark:via-zinc-900 dark:to-zinc-950 p-4">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-muted-foreground">Checking your account…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (shouldShowSubscription && user) {
     return (
       <>
         <Helmet>
@@ -305,8 +310,8 @@ const Auth = () => {
                 {isTrialActive ? 'Your Trial is Active' : 'Choose Your Plan'}
               </h1>
               <p className="text-muted-foreground">
-                Welcome, {pendingUser?.email}! 
-                {isTrialActive 
+                Welcome, {user.email || ''}!
+                {isTrialActive
                   ? ` You have ${trialDaysRemaining} day${trialDaysRemaining !== 1 ? 's' : ''} left in your trial.`
                   : ' Your trial has expired. Select a plan to continue.'}
               </p>
