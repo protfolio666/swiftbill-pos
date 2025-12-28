@@ -103,6 +103,21 @@ serve(async (req) => {
         result = await sql`SELECT * FROM users ORDER BY created_at DESC`;
         break;
 
+      case 'deleteUser':
+        // Delete a user from Neon (when owner is deleted from Supabase)
+        console.log('Deleting user from Neon:', data.userId);
+        
+        // Delete related data first (cascade)
+        await sql`DELETE FROM orders WHERE user_id = ${data.userId}`;
+        await sql`DELETE FROM menu_items WHERE user_id = ${data.userId}`;
+        await sql`DELETE FROM categories WHERE user_id = ${data.userId}`;
+        await sql`DELETE FROM brand_settings WHERE user_id = ${data.userId}`;
+        
+        // Finally delete the user
+        result = await sql`DELETE FROM users WHERE id = ${data.userId} RETURNING *`;
+        console.log('User deleted from Neon:', result);
+        break;
+
       case 'getUsers':
         result = await sql`SELECT * FROM users ORDER BY created_at DESC`;
         break;
