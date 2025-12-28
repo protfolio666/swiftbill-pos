@@ -195,10 +195,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const staff = await fetchStaffInfo(userId);
     
     if (staff && staff.role !== 'owner') {
-      // Staff member - check owner's subscription instead
+      // Staff member - fetch OWNER's profile and check owner's subscription
+      await fetchProfile(staff.owner_id);
       await fetchSubscription(userId, staff.owner_id);
     } else {
-      // Owner or no staff record - check own subscription
+      // Owner or no staff record - check own profile and subscription
       await fetchProfile(userId);
       await fetchSubscription(userId);
     }
