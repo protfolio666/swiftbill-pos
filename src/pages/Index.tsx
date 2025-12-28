@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sidebar } from '@/components/pos/Sidebar';
 import { MobileNav } from '@/components/pos/MobileNav';
 import { MobileCart } from '@/components/pos/MobileCart';
@@ -7,9 +7,13 @@ import { MenuManager } from '@/components/pos/MenuManager';
 import { InventoryView } from '@/components/pos/InventoryView';
 import { SettingsView } from '@/components/pos/SettingsView';
 import { OrderHistory } from '@/components/pos/OrderHistory';
+import { ChefDashboard } from '@/components/pos/ChefDashboard';
+import { WaiterView } from '@/components/pos/WaiterView';
+import { KOTOrdersView } from '@/components/pos/KOTOrdersView';
 import { Helmet } from 'react-helmet-async';
 import { useNeon } from '@/contexts/NeonContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useKOT } from '@/hooks/useKOT';
 import { Clock, Crown, WifiOff, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { usePOSStore } from '@/stores/posStore';
@@ -20,8 +24,47 @@ const Index = () => {
   const { isLoading, isOnline, syncError, refresh } = useNeon();
   const { isTrialActive, trialDaysRemaining, subscription } = useAuth();
   const { brand } = usePOSStore();
+  const { staffMember, isKOTEnabled, permissions, isLoading: kotLoading } = useKOT();
+
+  const role = staffMember?.role;
+
+  // Set default tab based on role when KOT is enabled
+  useEffect(() => {
+    if (kotLoading || !isKOTEnabled) return;
+
+    if (role === 'chef') {
+      setActiveTab('chef');
+    } else if (role === 'waiter') {
+      setActiveTab('pos');
+    }
+  }, [role, isKOTEnabled, kotLoading]);
 
   const renderContent = () => {
+    // If KOT is enabled and user is a chef, show chef dashboard
+    if (isKOTEnabled && role === 'chef') {
+      switch (activeTab) {
+        case 'chef':
+          return <ChefDashboard />;
+        case 'settings':
+          return <SettingsView />;
+        default:
+          return <ChefDashboard />;
+      }
+    }
+
+    // If KOT is enabled and user is a waiter, limit their views
+    if (isKOTEnabled && role === 'waiter') {
+      switch (activeTab) {
+        case 'pos':
+          return <POSView onCartOpen={() => setMobileCartOpen(true)} />;
+        case 'waiter':
+          return <WaiterView />;
+        default:
+          return <POSView onCartOpen={() => setMobileCartOpen(true)} />;
+      }
+    }
+
+    // Default views for owner/manager or when KOT is disabled
     switch (activeTab) {
       case 'pos':
         return <POSView onCartOpen={() => setMobileCartOpen(true)} />;
@@ -33,6 +76,12 @@ const Index = () => {
         return <InventoryView />;
       case 'settings':
         return <SettingsView />;
+      case 'kot':
+        return <KOTOrdersView />;
+      case 'chef':
+        return <ChefDashboard />;
+      case 'waiter':
+        return <WaiterView />;
       default:
         return <POSView onCartOpen={() => setMobileCartOpen(true)} />;
     }
@@ -103,7 +152,13 @@ const Index = () => {
         <div className="flex flex-1 overflow-hidden">
           {/* Desktop Sidebar */}
           <div className="hidden md:block">
-            <Sidebar activeTab={activeTab} onTabChange={setActiveTab} />
+            <Sidebar 
+              activeTab={activeTab} 
+              onTabChange={setActiveTab} 
+              role={role}
+              isKOTEnabled={isKOTEnabled}
+              permissions={permissions}
+            />
           </div>
           
           {/* Main Content */}
@@ -113,7 +168,13 @@ const Index = () => {
         </div>
         
         {/* Mobile Navigation */}
-        <MobileNav activeTab={activeTab} onTabChange={setActiveTab} />
+        <MobileNav 
+          activeTab={activeTab} 
+          onTabChange={setActiveTab}
+          role={role}
+          isKOTEnabled={isKOTEnabled}
+          permissions={permissions}
+        />
         
         {/* Mobile Cart Button & Sheet */}
         {activeTab === 'pos' && (

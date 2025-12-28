@@ -1,20 +1,60 @@
-import { ShoppingCart, UtensilsCrossed, Package, Settings, History } from 'lucide-react';
+import { ShoppingCart, UtensilsCrossed, Package, Settings, History, ChefHat, ClipboardList } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { StaffRole } from '@/types/kot';
 
 interface MobileNavProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  role?: StaffRole | null;
+  isKOTEnabled?: boolean;
+  permissions?: {
+    canViewReports: boolean;
+    canManageSettings: boolean;
+    canViewKOT: boolean;
+    canPlaceOrders: boolean;
+  };
 }
 
-const navItems = [
-  { id: 'pos', label: 'POS', icon: ShoppingCart },
-  { id: 'orders', label: 'Orders', icon: History },
-  { id: 'menu', label: 'Menu', icon: UtensilsCrossed },
-  { id: 'inventory', label: 'Stock', icon: Package },
-  { id: 'settings', label: 'Settings', icon: Settings },
-];
+export function MobileNav({ activeTab, onTabChange, role, isKOTEnabled, permissions }: MobileNavProps) {
+  // Build nav items based on role and KOT status
+  const getNavItems = () => {
+    // Chef-specific navigation
+    if (isKOTEnabled && role === 'chef') {
+      return [
+        { id: 'chef', label: 'Kitchen', icon: ChefHat },
+        { id: 'settings', label: 'Settings', icon: Settings },
+      ];
+    }
 
-export function MobileNav({ activeTab, onTabChange }: MobileNavProps) {
+    // Waiter-specific navigation
+    if (isKOTEnabled && role === 'waiter') {
+      return [
+        { id: 'pos', label: 'POS', icon: ShoppingCart },
+        { id: 'waiter', label: 'Orders', icon: ClipboardList },
+      ];
+    }
+
+    // Owner/Manager navigation
+    const items = [
+      { id: 'pos', label: 'POS', icon: ShoppingCart },
+      { id: 'orders', label: 'Orders', icon: History },
+    ];
+
+    // Add KOT tab if enabled
+    if (isKOTEnabled && permissions?.canViewKOT) {
+      items.push({ id: 'kot', label: 'Kitchen', icon: ChefHat });
+    }
+
+    items.push(
+      { id: 'menu', label: 'Menu', icon: UtensilsCrossed },
+      { id: 'settings', label: 'More', icon: Settings }
+    );
+
+    return items;
+  };
+
+  const navItems = getNavItems();
+
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden bg-card border-t border-border safe-area-bottom">
       <div className="flex items-center justify-around px-2 py-1">
