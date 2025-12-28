@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { resetPOSStore } from '@/stores/posStore';
@@ -106,6 +106,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   useEffect(() => {
+    // Prevent "flash" redirects: keep loading until getSession resolves at least once.
+    const initialSessionCheckedRef = { current: false };
+
     // Set up auth state listener FIRST
     const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(
       (event, session) => {
@@ -123,18 +126,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setSubscription(null);
           setHasActiveSubscription(false);
         }
-        setIsLoading(false);
+
+        // Only end loading AFTER initial session check has completed
+        if (initialSessionCheckedRef.current) {
+          setIsLoading(false);
+        }
       }
     );
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      initialSessionCheckedRef.current = true;
+
       setSession(session);
       setUser(session?.user ?? null);
+
       if (session?.user) {
         fetchProfile(session.user.id);
         fetchSubscription(session.user.id);
+      } else {
+        setProfile(null);
+        setSubscription(null);
+        setHasActiveSubscription(false);
       }
+
       setIsLoading(false);
     });
 
