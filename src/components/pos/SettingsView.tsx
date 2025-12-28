@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Store, Upload, Receipt, QrCode, Crown, Clock, CreditCard, Check, Loader2 } from 'lucide-react';
+import { Store, Upload, Receipt, QrCode, Crown, Clock, CreditCard, Check, Loader2, Webhook, MessageCircle } from 'lucide-react';
 import { usePOSStore } from '@/stores/posStore';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -98,6 +98,8 @@ export function SettingsView() {
     upiId: brand.upiId || '',
     gstin: brand.gstin || '',
     showGstOnReceipt: brand.showGstOnReceipt ?? false,
+    zapierWebhookUrl: brand.zapierWebhookUrl || '',
+    enableAutoWhatsApp: brand.enableAutoWhatsApp ?? false,
   });
 
   // Do NOT call refreshSubscription here - it causes the app to flash
@@ -117,6 +119,8 @@ export function SettingsView() {
       upiId: formData.upiId || undefined,
       gstin: formData.gstin || undefined,
       showGstOnReceipt: formData.showGstOnReceipt,
+      zapierWebhookUrl: formData.zapierWebhookUrl || undefined,
+      enableAutoWhatsApp: formData.enableAutoWhatsApp,
     });
 
     await saveBrandSettings({
@@ -606,6 +610,70 @@ export function SettingsView() {
               max="100"
               className="w-32"
             />
+          </div>
+        )}
+
+        <Button variant="pos" onClick={handleSave} className="w-full" disabled={isSaving}>
+          {isSaving ? 'Saving...' : 'Save Settings'}
+        </Button>
+      </div>
+
+      {/* WhatsApp Automation Card */}
+      <div className="bg-card rounded-2xl border border-border p-6 space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
+            <MessageCircle className="w-5 h-5 text-green-600" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-lg text-foreground">WhatsApp Automation</h2>
+            <p className="text-sm text-muted-foreground">Auto-send receipts via Zapier</p>
+          </div>
+        </div>
+
+        {/* Enable Auto WhatsApp Toggle */}
+        <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-xl">
+          <div>
+            <p className="font-medium text-foreground">Enable Auto WhatsApp</p>
+            <p className="text-sm text-muted-foreground">Send receipt automatically when order is placed</p>
+          </div>
+          <Switch
+            checked={formData.enableAutoWhatsApp}
+            onCheckedChange={(checked) => setFormData({ ...formData, enableAutoWhatsApp: checked })}
+          />
+        </div>
+
+        {formData.enableAutoWhatsApp && (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="zapierWebhookUrl">Zapier Webhook URL</Label>
+              <Input
+                id="zapierWebhookUrl"
+                value={formData.zapierWebhookUrl}
+                onChange={(e) => setFormData({ ...formData, zapierWebhookUrl: e.target.value })}
+                placeholder="https://hooks.zapier.com/hooks/catch/..."
+              />
+            </div>
+
+            <div className="p-4 bg-amber-500/10 rounded-xl space-y-3">
+              <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                📋 How to set up Zapier automation:
+              </p>
+              <ol className="text-sm text-amber-600 dark:text-amber-400 space-y-2 list-decimal list-inside">
+                <li>Go to <a href="https://zapier.com" target="_blank" rel="noopener noreferrer" className="underline">zapier.com</a> and create a free account</li>
+                <li>Create a new Zap with "Webhooks by Zapier" as trigger</li>
+                <li>Choose "Catch Hook" and copy the webhook URL here</li>
+                <li>Add "Twilio" or "WhatsApp Business" action to send message</li>
+                <li>Use the <code className="bg-amber-200/50 dark:bg-amber-800/50 px-1 rounded">whatsapp_message</code> field for the message content</li>
+              </ol>
+            </div>
+
+            {formData.zapierWebhookUrl && (
+              <div className="p-3 bg-green-500/10 rounded-lg">
+                <p className="text-sm text-green-700 dark:text-green-400">
+                  ✓ Webhook configured - receipts will be sent automatically
+                </p>
+              </div>
+            )}
           </div>
         )}
 

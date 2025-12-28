@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useNeon } from '@/contexts/NeonContext';
 import QRCode from 'qrcode';
 import { thermalPrinter, PrintOrderData } from '@/services/thermalPrinter';
+import { triggerWebhook } from '@/services/webhookService';
 
 // Generate UPI payment link
 const generateUpiLink = (upiId: string, name: string, amount: number, orderId: string) => {
@@ -420,6 +421,18 @@ export function Cart() {
       setLastOrder(order);
       // Save to Neon DB
       await saveOrder(order);
+      
+      // Trigger webhook for automatic WhatsApp (Zapier)
+      if (brand.enableAutoWhatsApp && brand.zapierWebhookUrl && order.customerPhone) {
+        const webhookTriggered = await triggerWebhook(order, brand);
+        if (webhookTriggered) {
+          toast.success(`Bill generated! Order #${order.id}`, {
+            description: `Total: ${brand.currency}${order.total.toFixed(2)} • WhatsApp sent`,
+          });
+          return;
+        }
+      }
+      
       toast.success(`Bill generated! Order #${order.id}`, {
         description: `Total: ${brand.currency}${order.total.toFixed(2)}`,
       });
