@@ -14,6 +14,120 @@ export type Database = {
   }
   public: {
     Tables: {
+      kot_orders: {
+        Row: {
+          assigned_chef_id: string | null
+          completed_at: string | null
+          created_at: string
+          customer_name: string | null
+          delay_reason: string | null
+          delay_remarks: string | null
+          id: string
+          items: Json
+          order_id: string
+          owner_id: string
+          prep_time_minutes: number | null
+          served_at: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["kot_order_status"] | null
+          table_number: number | null
+          updated_at: string
+          waiter_id: string | null
+        }
+        Insert: {
+          assigned_chef_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          customer_name?: string | null
+          delay_reason?: string | null
+          delay_remarks?: string | null
+          id?: string
+          items: Json
+          order_id: string
+          owner_id: string
+          prep_time_minutes?: number | null
+          served_at?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["kot_order_status"] | null
+          table_number?: number | null
+          updated_at?: string
+          waiter_id?: string | null
+        }
+        Update: {
+          assigned_chef_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          customer_name?: string | null
+          delay_reason?: string | null
+          delay_remarks?: string | null
+          id?: string
+          items?: Json
+          order_id?: string
+          owner_id?: string
+          prep_time_minutes?: number | null
+          served_at?: string | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["kot_order_status"] | null
+          table_number?: number | null
+          updated_at?: string
+          waiter_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kot_orders_assigned_chef_id_fkey"
+            columns: ["assigned_chef_id"]
+            isOneToOne: false
+            referencedRelation: "staff_members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kot_orders_waiter_id_fkey"
+            columns: ["waiter_id"]
+            isOneToOne: false
+            referencedRelation: "staff_members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kot_settings: {
+        Row: {
+          auto_assign_enabled: boolean | null
+          created_at: string
+          default_prep_time_minutes: number | null
+          id: string
+          kot_enabled: boolean | null
+          order_assignment_mode:
+            | Database["public"]["Enums"]["order_assignment_mode"]
+            | null
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          auto_assign_enabled?: boolean | null
+          created_at?: string
+          default_prep_time_minutes?: number | null
+          id?: string
+          kot_enabled?: boolean | null
+          order_assignment_mode?:
+            | Database["public"]["Enums"]["order_assignment_mode"]
+            | null
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          auto_assign_enabled?: boolean | null
+          created_at?: string
+          default_prep_time_minutes?: number | null
+          id?: string
+          kot_enabled?: boolean | null
+          order_assignment_mode?:
+            | Database["public"]["Enums"]["order_assignment_mode"]
+            | null
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           address: string | null
@@ -48,6 +162,45 @@ export type Database = {
           owner_name?: string | null
           phone?: string | null
           restaurant_name?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      staff_members: {
+        Row: {
+          chef_status: Database["public"]["Enums"]["chef_status"] | null
+          created_at: string
+          id: string
+          is_active: boolean | null
+          name: string
+          owner_id: string
+          phone: string | null
+          role: Database["public"]["Enums"]["staff_role"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          chef_status?: Database["public"]["Enums"]["chef_status"] | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          owner_id: string
+          phone?: string | null
+          role: Database["public"]["Enums"]["staff_role"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          chef_status?: Database["public"]["Enums"]["chef_status"] | null
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          owner_id?: string
+          phone?: string | null
+          role?: Database["public"]["Enums"]["staff_role"]
           updated_at?: string
           user_id?: string
         }
@@ -103,10 +256,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_staff_owner_id: { Args: { _user_id: string }; Returns: string }
+      get_staff_role: {
+        Args: { _user_id: string }
+        Returns: Database["public"]["Enums"]["staff_role"]
+      }
+      is_manager_or_owner: { Args: { _user_id: string }; Returns: boolean }
+      is_owner: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      chef_status: "online" | "offline" | "break"
+      kot_order_status:
+        | "pending"
+        | "assigned"
+        | "preparing"
+        | "completed"
+        | "served"
+        | "cancelled"
+      order_assignment_mode: "auto" | "claim" | "manual"
+      staff_role: "owner" | "manager" | "waiter" | "chef"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -233,6 +401,18 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      chef_status: ["online", "offline", "break"],
+      kot_order_status: [
+        "pending",
+        "assigned",
+        "preparing",
+        "completed",
+        "served",
+        "cancelled",
+      ],
+      order_assignment_mode: ["auto", "claim", "manual"],
+      staff_role: ["owner", "manager", "waiter", "chef"],
+    },
   },
 } as const
