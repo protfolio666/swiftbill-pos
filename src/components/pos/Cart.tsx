@@ -84,6 +84,7 @@ export function Cart() {
       <html>
       <head>
         <title>Receipt - ${order.id}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
         <style>
           @page { margin: 0; size: 80mm auto; }
           * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -334,14 +335,54 @@ export function Cart() {
       </html>
     `;
 
-    const printWindow = window.open('', '_blank', 'width=350,height=600');
-    if (printWindow) {
-      printWindow.document.write(receiptContent);
-      printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-      }, 250);
+    // Create a hidden iframe for printing - works better on Android
+    const printFrame = document.createElement('iframe');
+    printFrame.style.position = 'fixed';
+    printFrame.style.right = '0';
+    printFrame.style.bottom = '0';
+    printFrame.style.width = '0';
+    printFrame.style.height = '0';
+    printFrame.style.border = 'none';
+    document.body.appendChild(printFrame);
+
+    const frameDoc = printFrame.contentWindow?.document;
+    if (frameDoc) {
+      frameDoc.open();
+      frameDoc.write(receiptContent);
+      frameDoc.close();
+
+      // Wait for content to load then print
+      printFrame.onload = () => {
+        setTimeout(() => {
+          try {
+            printFrame.contentWindow?.focus();
+            printFrame.contentWindow?.print();
+          } catch (e) {
+            // Fallback: trigger print directly
+            window.print();
+          }
+          // Clean up iframe after printing
+          setTimeout(() => {
+            document.body.removeChild(printFrame);
+          }, 1000);
+        }, 300);
+      };
+
+      // Trigger load event manually if content is already loaded
+      if (frameDoc.readyState === 'complete') {
+        printFrame.onload?.(new Event('load'));
+      }
+    } else {
+      // Fallback for browsers that don't support iframe printing
+      const printWindow = window.open('', '_blank');
+      if (printWindow) {
+        printWindow.document.write(receiptContent);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => {
+          printWindow.print();
+        }, 300);
+      }
     }
   };
 

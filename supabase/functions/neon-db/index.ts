@@ -170,14 +170,21 @@ serve(async (req) => {
         if (existing.length > 0) {
           result = await sql`
             UPDATE brand_settings 
-            SET business_name = ${data.business_name}, logo_url = ${data.logo_url}, 
-                primary_color = ${data.primary_color}, currency = ${data.currency}
+            SET business_name = ${data.business_name}, 
+                logo_url = ${data.logo_url}, 
+                primary_color = ${data.primary_color}, 
+                currency = ${data.currency},
+                upi_id = ${data.upi_id || null},
+                tax_rate = ${data.tax_rate || 5},
+                enable_gst = ${data.enable_gst ?? true},
+                cgst_rate = ${data.cgst_rate || 2.5},
+                sgst_rate = ${data.sgst_rate || 2.5}
             WHERE id = ${existing[0].id} AND user_id = ${userId}
             RETURNING *`;
         } else {
           result = await sql`
-            INSERT INTO brand_settings (business_name, logo_url, primary_color, currency, user_id) 
-            VALUES (${data.business_name}, ${data.logo_url}, ${data.primary_color}, ${data.currency}, ${userId}) 
+            INSERT INTO brand_settings (business_name, logo_url, primary_color, currency, user_id, upi_id, tax_rate, enable_gst, cgst_rate, sgst_rate) 
+            VALUES (${data.business_name}, ${data.logo_url}, ${data.primary_color}, ${data.currency}, ${userId}, ${data.upi_id || null}, ${data.tax_rate || 5}, ${data.enable_gst ?? true}, ${data.cgst_rate || 2.5}, ${data.sgst_rate || 2.5}) 
             RETURNING *`;
         }
         break;

@@ -120,6 +120,11 @@ export function SettingsView() {
       name: formData.name,
       currency: formData.currency,
       logo: formData.logo || undefined,
+      upiId: formData.upiId || undefined,
+      taxRate: parseFloat(formData.taxRate) || 0,
+      enableGST: formData.enableGST,
+      cgstRate: parseFloat(formData.cgstRate) || 0,
+      sgstRate: parseFloat(formData.sgstRate) || 0,
     });
 
     // Sync user profile to Neon DB
