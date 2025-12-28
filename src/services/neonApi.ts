@@ -106,6 +106,11 @@ export interface DbBrandSettings {
   currency: string;
   user_id: string;
   created_at: string;
+  upi_id?: string | null;
+  tax_rate?: number;
+  enable_gst?: boolean;
+  cgst_rate?: number;
+  sgst_rate?: number;
 }
 
 export interface CreateMenuItemInput {
@@ -132,4 +137,9 @@ export interface UpdateBrandSettingsInput {
   logo_url?: string | null;
   primary_color?: string;
   currency?: string;
+  upi_id?: string | null;
+  tax_rate?: number;
+  enable_gst?: boolean;
+  cgst_rate?: number;
+  sgst_rate?: number;
 }

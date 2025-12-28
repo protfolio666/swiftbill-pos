@@ -15,9 +15,12 @@ const queryClient = new QueryClient();
 
 // Protected route wrapper
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, isLoading, hasActiveSubscription } = useAuth();
+  const { user, isLoading, hasActiveSubscription, subscription } = useAuth();
 
-  if (isLoading) {
+  // Show loader while auth is loading OR while we have a user but subscription status is still being fetched
+  const isSubscriptionLoading = user && subscription === null && isLoading === false;
+  
+  if (isLoading || isSubscriptionLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -32,7 +35,8 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     return <Navigate to="/auth" replace />;
   }
 
-  if (!hasActiveSubscription) {
+  // Only redirect to auth if subscription check is complete and not active
+  if (subscription !== null && !hasActiveSubscription) {
     return <Navigate to="/auth" replace />;
   }
 

@@ -133,6 +133,11 @@ export function useNeonSync() {
           name: brand.business_name,
           currency: brand.currency === 'USD' ? '$' : brand.currency === 'INR' ? '₹' : brand.currency,
           logo: brand.logo_url || undefined,
+          upiId: brand.upi_id || '',
+          taxRate: brand.tax_rate ?? 5,
+          enableGST: brand.enable_gst ?? true,
+          cgstRate: brand.cgst_rate ?? 2.5,
+          sgstRate: brand.sgst_rate ?? 2.5,
         };
         setBrand(brandSettings);
         offlineCache.saveToCache('brandSettings', brandSettings, user.id);
@@ -382,7 +387,16 @@ export function useNeonSync() {
   }, []);
 
   // Save brand settings to Neon
-  const saveBrandSettings = useCallback(async (settings: { name: string; currency: string; logo?: string }) => {
+  const saveBrandSettings = useCallback(async (settings: { 
+    name: string; 
+    currency: string; 
+    logo?: string;
+    upiId?: string;
+    taxRate?: number;
+    enableGST?: boolean;
+    cgstRate?: number;
+    sgstRate?: number;
+  }) => {
     setBrand(settings);
     
     if (user) {
@@ -400,8 +414,12 @@ export function useNeonSync() {
         business_name: settings.name,
         logo_url: settings.logo || null,
         currency: currencyCode,
+        upi_id: settings.upiId || null,
+        tax_rate: settings.taxRate,
+        enable_gst: settings.enableGST,
+        cgst_rate: settings.cgstRate,
+        sgst_rate: settings.sgstRate,
       });
-      toast.success('Settings saved');
       return true;
     } catch (error) {
       console.error('Failed to save settings to Neon:', error);
