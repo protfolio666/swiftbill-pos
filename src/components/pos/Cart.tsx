@@ -351,7 +351,6 @@ export function Cart() {
     printFrame.style.height = '0';
     printFrame.style.border = 'none';
     printFrame.style.visibility = 'hidden';
-    printFrame.setAttribute('sandbox', 'allow-same-origin allow-scripts');
     document.body.appendChild(printFrame);
 
     const frameDoc = printFrame.contentWindow?.document;
@@ -361,30 +360,21 @@ export function Cart() {
       frameDoc.close();
 
       // Wait for content to load then print
-      const triggerPrint = () => {
+      setTimeout(() => {
+        try {
+          printFrame.contentWindow?.focus();
+          printFrame.contentWindow?.print();
+        } catch (e) {
+          console.error('Print failed:', e);
+          toast.error('Print failed. Please try again.');
+        }
+        // Clean up iframe after printing
         setTimeout(() => {
-          try {
-            printFrame.contentWindow?.focus();
-            printFrame.contentWindow?.print();
-          } catch (e) {
-            console.error('Print failed:', e);
-            toast.error('Print failed. Please try again.');
+          if (document.body.contains(printFrame)) {
+            document.body.removeChild(printFrame);
           }
-          // Clean up iframe after printing
-          setTimeout(() => {
-            if (document.body.contains(printFrame)) {
-              document.body.removeChild(printFrame);
-            }
-          }, 2000);
-        }, 300);
-      };
-
-      printFrame.onload = triggerPrint;
-
-      // Trigger print if content is already loaded
-      if (frameDoc.readyState === 'complete') {
-        triggerPrint();
-      }
+        }, 2000);
+      }, 500);
     } else {
       // Fallback: Create blob URL and open in new tab
       const blob = new Blob([receiptContent], { type: 'text/html' });
