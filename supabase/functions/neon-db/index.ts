@@ -166,6 +166,18 @@ serve(async (req) => {
         break;
 
       case 'updateBrandSettings':
+        // First, ensure the new columns exist (migration for Neon DB)
+        try {
+          await sql`ALTER TABLE brand_settings ADD COLUMN IF NOT EXISTS upi_id TEXT`;
+          await sql`ALTER TABLE brand_settings ADD COLUMN IF NOT EXISTS tax_rate NUMERIC DEFAULT 5`;
+          await sql`ALTER TABLE brand_settings ADD COLUMN IF NOT EXISTS enable_gst BOOLEAN DEFAULT true`;
+          await sql`ALTER TABLE brand_settings ADD COLUMN IF NOT EXISTS cgst_rate NUMERIC DEFAULT 2.5`;
+          await sql`ALTER TABLE brand_settings ADD COLUMN IF NOT EXISTS sgst_rate NUMERIC DEFAULT 2.5`;
+        } catch (migrationError) {
+          // Columns may already exist, ignore error
+          console.log('Migration check completed');
+        }
+
         const existing = await sql`SELECT id FROM brand_settings WHERE user_id = ${userId} LIMIT 1`;
         if (existing.length > 0) {
           result = await sql`
