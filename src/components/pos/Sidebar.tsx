@@ -49,11 +49,10 @@ export function Sidebar({ activeTab, onTabChange, role, isKOTEnabled, permission
 
   // Build nav items based on role and KOT status
   const getNavItems = () => {
-    // Chef-specific navigation - only kitchen and settings (limited)
+    // Chef-specific navigation - ONLY kitchen, NO settings
     if (role === 'chef') {
       return [
         { id: 'chef', label: 'Kitchen', icon: ChefHat },
-        { id: 'settings', label: 'Settings', icon: Settings },
       ];
     }
 

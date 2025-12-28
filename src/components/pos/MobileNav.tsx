@@ -18,11 +18,10 @@ interface MobileNavProps {
 export function MobileNav({ activeTab, onTabChange, role, isKOTEnabled, permissions }: MobileNavProps) {
   // Build nav items based on role and KOT status
   const getNavItems = () => {
-    // Chef-specific navigation
+    // Chef-specific navigation - ONLY kitchen, NO settings
     if (role === 'chef') {
       return [
         { id: 'chef', label: 'Kitchen', icon: ChefHat },
-        { id: 'settings', label: 'Settings', icon: Settings },
       ];
     }
 
