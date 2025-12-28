@@ -23,6 +23,8 @@ interface NeonContextType {
     enableGST?: boolean;
     cgstRate?: number;
     sgstRate?: number;
+    gstin?: string;
+    showGstOnReceipt?: boolean;
   }) => Promise<boolean>;
 }
 

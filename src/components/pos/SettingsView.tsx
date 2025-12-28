@@ -95,6 +95,8 @@ export function SettingsView() {
     cgstRate: (brand.cgstRate ?? 2.5).toString(),
     sgstRate: (brand.sgstRate ?? 2.5).toString(),
     upiId: brand.upiId || '',
+    gstin: brand.gstin || '',
+    showGstOnReceipt: brand.showGstOnReceipt ?? false,
   });
 
   // Do NOT call refreshSubscription here - it causes the app to flash
@@ -112,6 +114,8 @@ export function SettingsView() {
       cgstRate: parseFloat(formData.cgstRate) || 0,
       sgstRate: parseFloat(formData.sgstRate) || 0,
       upiId: formData.upiId || undefined,
+      gstin: formData.gstin || undefined,
+      showGstOnReceipt: formData.showGstOnReceipt,
     });
 
     await saveBrandSettings({
@@ -123,6 +127,8 @@ export function SettingsView() {
       enableGST: formData.enableGST,
       cgstRate: parseFloat(formData.cgstRate) || 0,
       sgstRate: parseFloat(formData.sgstRate) || 0,
+      gstin: formData.gstin || undefined,
+      showGstOnReceipt: formData.showGstOnReceipt,
     });
 
     // Sync user profile to Neon DB
@@ -559,6 +565,31 @@ export function SettingsView() {
               <p className="text-sm text-green-700 dark:text-green-400">
                 Total GST: <span className="font-bold">{totalGST}%</span> (CGST {formData.cgstRate}% + SGST {formData.sgstRate}%)
               </p>
+            </div>
+
+            {/* GSTIN Input */}
+            <div className="space-y-2">
+              <Label htmlFor="gstin">GSTIN Number</Label>
+              <Input
+                id="gstin"
+                value={formData.gstin}
+                onChange={(e) => setFormData({ ...formData, gstin: e.target.value.toUpperCase() })}
+                placeholder="22AAAAA0000A1Z5"
+                maxLength={15}
+              />
+            </div>
+
+            {/* Show GST on Receipt Toggle */}
+            <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-xl">
+              <div>
+                <p className="font-medium text-foreground">Show GSTIN on Receipt</p>
+                <p className="text-sm text-muted-foreground">Display GSTIN number on printed bills</p>
+              </div>
+              <Switch
+                checked={formData.showGstOnReceipt}
+                onCheckedChange={(checked) => setFormData({ ...formData, showGstOnReceipt: checked })}
+                disabled={!formData.gstin}
+              />
             </div>
           </div>
         ) : (

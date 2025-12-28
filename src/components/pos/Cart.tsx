@@ -18,9 +18,9 @@ const generateUpiLink = (upiId: string, name: string, amount: number, orderId: s
 
 export function Cart() {
   const { 
-    cart, brand, discount, discountType, orderType, tableNumber,
+    cart, brand, discount, discountType, orderType, tableNumber, customerName, customerPhone,
     updateCartQuantity, removeFromCart, clearCart, createOrder, 
-    setDiscount, setOrderType, setTableNumber 
+    setDiscount, setOrderType, setTableNumber, setCustomerName, setCustomerPhone 
   } = usePOSStore();
   const { saveOrder } = useNeon();
   const [discountInput, setDiscountInput] = useState(discount.toString());
@@ -243,6 +243,7 @@ export function Cart() {
         <div class="header">
           ${brand.logo ? `<img class="logo" src="${brand.logo}" alt="Logo" />` : ''}
           <div class="brand-name">${brand.name.toUpperCase()}</div>
+          ${brand.showGstOnReceipt && brand.gstin ? `<div style="font-size: 10px; margin-top: 2px;">GSTIN: ${brand.gstin}</div>` : ''}
         </div>
         
         <hr class="divider" />
@@ -261,6 +262,12 @@ export function Cart() {
         ${order.orderType === 'dine-in' && order.tableNumber ? `
           <div style="text-align: center; margin: 8px 0; font-size: 16px; font-weight: bold; border: 2px solid #000; padding: 6px;">
             TABLE NO: ${order.tableNumber}
+          </div>
+        ` : ''}
+        ${order.customerName || order.customerPhone ? `
+          <div style="margin: 6px 0; padding: 6px; border: 1px dashed #000;">
+            ${order.customerName ? `<div class="info-row"><span class="info-label">Customer:</span><span>${order.customerName}</span></div>` : ''}
+            ${order.customerPhone ? `<div class="info-row"><span class="info-label">Phone:</span><span>${order.customerPhone}</span></div>` : ''}
           </div>
         ` : ''}
         
@@ -534,6 +541,27 @@ export function Cart() {
                 </Select>
               </div>
             )}
+
+            {/* Customer Details */}
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-muted-foreground">Customer Details (Optional)</label>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  type="text"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  placeholder="Name"
+                  className="h-8 text-sm"
+                />
+                <Input
+                  type="tel"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  placeholder="Phone"
+                  className="h-8 text-sm"
+                />
+              </div>
+            </div>
 
             {/* Discount Input */}
             <div className="space-y-1">
