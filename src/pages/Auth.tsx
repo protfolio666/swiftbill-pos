@@ -109,7 +109,8 @@ const Auth = () => {
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
 
   // Staff members should NEVER see subscription page - they use owner's subscription
-  const shouldShowSubscription = !!user && isSubscriptionLoaded && !hasActiveSubscription && !isStaffMember;
+  // Also, if user just logged out, don't show subscription page
+  const shouldShowSubscription = !!user && isSubscriptionLoaded && !hasActiveSubscription && !isStaffMember && !isTrialActive;
   const isAuthTransitionLoading = !!user && !isSubscriptionLoaded;
 
 
