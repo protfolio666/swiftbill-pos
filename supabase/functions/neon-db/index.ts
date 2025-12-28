@@ -173,6 +173,8 @@ serve(async (req) => {
           await sql`ALTER TABLE brand_settings ADD COLUMN IF NOT EXISTS enable_gst BOOLEAN DEFAULT true`;
           await sql`ALTER TABLE brand_settings ADD COLUMN IF NOT EXISTS cgst_rate NUMERIC DEFAULT 2.5`;
           await sql`ALTER TABLE brand_settings ADD COLUMN IF NOT EXISTS sgst_rate NUMERIC DEFAULT 2.5`;
+          await sql`ALTER TABLE brand_settings ADD COLUMN IF NOT EXISTS gstin TEXT`;
+          await sql`ALTER TABLE brand_settings ADD COLUMN IF NOT EXISTS show_gst_on_receipt BOOLEAN DEFAULT false`;
         } catch (migrationError) {
           // Columns may already exist, ignore error
           console.log('Migration check completed');
@@ -190,13 +192,15 @@ serve(async (req) => {
                 tax_rate = ${data.tax_rate || 5},
                 enable_gst = ${data.enable_gst ?? true},
                 cgst_rate = ${data.cgst_rate || 2.5},
-                sgst_rate = ${data.sgst_rate || 2.5}
+                sgst_rate = ${data.sgst_rate || 2.5},
+                gstin = ${data.gstin || null},
+                show_gst_on_receipt = ${data.show_gst_on_receipt ?? false}
             WHERE id = ${existing[0].id} AND user_id = ${userId}
             RETURNING *`;
         } else {
           result = await sql`
-            INSERT INTO brand_settings (business_name, logo_url, primary_color, currency, user_id, upi_id, tax_rate, enable_gst, cgst_rate, sgst_rate) 
-            VALUES (${data.business_name}, ${data.logo_url}, ${data.primary_color}, ${data.currency}, ${userId}, ${data.upi_id || null}, ${data.tax_rate || 5}, ${data.enable_gst ?? true}, ${data.cgst_rate || 2.5}, ${data.sgst_rate || 2.5}) 
+            INSERT INTO brand_settings (business_name, logo_url, primary_color, currency, user_id, upi_id, tax_rate, enable_gst, cgst_rate, sgst_rate, gstin, show_gst_on_receipt) 
+            VALUES (${data.business_name}, ${data.logo_url}, ${data.primary_color}, ${data.currency}, ${userId}, ${data.upi_id || null}, ${data.tax_rate || 5}, ${data.enable_gst ?? true}, ${data.cgst_rate || 2.5}, ${data.sgst_rate || 2.5}, ${data.gstin || null}, ${data.show_gst_on_receipt ?? false}) 
             RETURNING *`;
         }
         break;

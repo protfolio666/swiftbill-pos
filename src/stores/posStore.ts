@@ -35,8 +35,12 @@ interface POSState {
   // Order Options
   orderType: OrderType;
   tableNumber: number | null;
+  customerName: string;
+  customerPhone: string;
   setOrderType: (type: OrderType) => void;
   setTableNumber: (num: number | null) => void;
+  setCustomerName: (name: string) => void;
+  setCustomerPhone: (phone: string) => void;
 
   // Orders
   orders: Order[];
@@ -52,6 +56,8 @@ const defaultBrand: BrandSettings = {
   cgstRate: 2.5,
   sgstRate: 2.5,
   upiId: '',
+  gstin: '',
+  showGstOnReceipt: false,
 };
 
 // Get the current user ID from localStorage to make storage user-specific
@@ -120,7 +126,7 @@ export const usePOSStore = create<POSState>()(
                   item.id === id ? { ...item, quantity } : item
                 ),
         })),
-      clearCart: () => set({ cart: [], discount: 0, discountType: 'percentage', orderType: 'dine-in', tableNumber: null }),
+      clearCart: () => set({ cart: [], discount: 0, discountType: 'percentage', orderType: 'dine-in', tableNumber: null, customerName: '', customerPhone: '' }),
 
       discount: 0,
       discountType: 'percentage',
@@ -128,8 +134,12 @@ export const usePOSStore = create<POSState>()(
 
       orderType: 'dine-in',
       tableNumber: null,
+      customerName: '',
+      customerPhone: '',
       setOrderType: (type) => set({ orderType: type }),
       setTableNumber: (num) => set({ tableNumber: num }),
+      setCustomerName: (name) => set({ customerName: name }),
+      setCustomerPhone: (phone) => set({ customerPhone: phone }),
 
       orders: [], // Start empty - data comes from Neon per user
       setOrders: (orders) => set({ orders }),
@@ -175,6 +185,8 @@ export const usePOSStore = create<POSState>()(
           status: 'completed',
           orderType: state.orderType,
           tableNumber: state.orderType === 'dine-in' ? state.tableNumber ?? undefined : undefined,
+          customerName: state.customerName || undefined,
+          customerPhone: state.customerPhone || undefined,
         };
 
         // Update stock
@@ -194,6 +206,8 @@ export const usePOSStore = create<POSState>()(
           discountType: 'percentage',
           orderType: 'dine-in',
           tableNumber: null,
+          customerName: '',
+          customerPhone: '',
         }));
         return order;
       },
@@ -215,6 +229,8 @@ export const resetPOSStore = () => {
     discountType: 'percentage',
     orderType: 'dine-in',
     tableNumber: null,
+    customerName: '',
+    customerPhone: '',
     orders: [],
   });
 };

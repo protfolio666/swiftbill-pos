@@ -111,6 +111,8 @@ export interface DbBrandSettings {
   enable_gst?: boolean;
   cgst_rate?: number;
   sgst_rate?: number;
+  gstin?: string | null;
+  show_gst_on_receipt?: boolean;
 }
 
 export interface CreateMenuItemInput {
@@ -142,4 +144,6 @@ export interface UpdateBrandSettingsInput {
   enable_gst?: boolean;
   cgst_rate?: number;
   sgst_rate?: number;
+  gstin?: string | null;
+  show_gst_on_receipt?: boolean;
 }

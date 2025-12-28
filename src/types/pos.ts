@@ -26,6 +26,8 @@ export interface Order {
   status: 'pending' | 'completed' | 'cancelled';
   orderType: OrderType;
   tableNumber?: number;
+  customerName?: string;
+  customerPhone?: string;
 }
 
 export interface BrandSettings {
@@ -37,6 +39,8 @@ export interface BrandSettings {
   cgstRate: number;
   sgstRate: number;
   upiId?: string;
+  gstin?: string;
+  showGstOnReceipt: boolean;
 }
 
 export type Category = {

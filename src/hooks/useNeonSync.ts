@@ -138,6 +138,8 @@ export function useNeonSync() {
           enableGST: brand.enable_gst ?? true,
           cgstRate: brand.cgst_rate ?? 2.5,
           sgstRate: brand.sgst_rate ?? 2.5,
+          gstin: brand.gstin || '',
+          showGstOnReceipt: brand.show_gst_on_receipt ?? false,
         };
         setBrand(brandSettings);
         offlineCache.saveToCache('brandSettings', brandSettings, user.id);
@@ -396,6 +398,8 @@ export function useNeonSync() {
     enableGST?: boolean;
     cgstRate?: number;
     sgstRate?: number;
+    gstin?: string;
+    showGstOnReceipt?: boolean;
   }) => {
     setBrand(settings);
     
@@ -419,6 +423,8 @@ export function useNeonSync() {
         enable_gst: settings.enableGST,
         cgst_rate: settings.cgstRate,
         sgst_rate: settings.sgstRate,
+        gstin: settings.gstin || null,
+        show_gst_on_receipt: settings.showGstOnReceipt,
       });
       return true;
     } catch (error) {
