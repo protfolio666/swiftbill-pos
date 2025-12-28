@@ -223,6 +223,77 @@ serve(async (req) => {
       });
     }
 
+    if (action === 'delete-owner') {
+      const { userId } = data;
+      
+      console.log('Deleting owner:', userId);
+
+      // Delete in order due to foreign key constraints
+      // 1. Delete KOT orders where this owner's staff are assigned
+      const { error: kotError } = await supabase
+        .from('kot_orders')
+        .delete()
+        .eq('owner_id', userId);
+
+      if (kotError) {
+        console.error('Error deleting KOT orders:', kotError);
+      }
+
+      // 2. Delete KOT settings
+      const { error: kotSettingsError } = await supabase
+        .from('kot_settings')
+        .delete()
+        .eq('owner_id', userId);
+
+      if (kotSettingsError) {
+        console.error('Error deleting KOT settings:', kotSettingsError);
+      }
+
+      // 3. Delete staff members (including owner's own staff record)
+      const { error: staffError } = await supabase
+        .from('staff_members')
+        .delete()
+        .eq('owner_id', userId);
+
+      if (staffError) {
+        console.error('Error deleting staff members:', staffError);
+      }
+
+      // 4. Delete subscription
+      const { error: subError } = await supabase
+        .from('subscriptions')
+        .delete()
+        .eq('user_id', userId);
+
+      if (subError) {
+        console.error('Error deleting subscription:', subError);
+      }
+
+      // 5. Delete profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('user_id', userId);
+
+      if (profileError) {
+        console.error('Error deleting profile:', profileError);
+      }
+
+      // 6. Finally delete the auth user
+      const { error: authError } = await supabase.auth.admin.deleteUser(userId);
+
+      if (authError) {
+        console.error('Error deleting auth user:', authError);
+        throw authError;
+      }
+
+      console.log('Owner deleted successfully:', userId);
+
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     return new Response(JSON.stringify({ error: 'Unknown action' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -11,7 +11,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Helmet } from 'react-helmet-async';
-import { Shield, Users, RefreshCw, Calendar, ArrowLeft, Crown, Clock, Ban } from 'lucide-react';
+import { Shield, Users, RefreshCw, Calendar, ArrowLeft, Crown, Clock, Ban, Trash2 } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 
 interface UserData {
@@ -165,6 +166,21 @@ const Admin = () => {
     } catch (error) {
       console.error('Error cancelling subscription:', error);
       toast.error('Failed to cancel subscription');
+    }
+  };
+
+  const handleDeleteOwner = async (userId: string, email: string) => {
+    try {
+      const { error } = await supabase.functions.invoke('admin', {
+        body: { action: 'delete-owner', data: { userId } }
+      });
+
+      if (error) throw error;
+      toast.success(`Owner ${email} deleted successfully`);
+      fetchUsers();
+    } catch (error) {
+      console.error('Error deleting owner:', error);
+      toast.error('Failed to delete owner');
     }
   };
 
@@ -414,6 +430,43 @@ const Admin = () => {
                                 </DialogFooter>
                               </DialogContent>
                             </Dialog>
+                            
+                            {/* Delete Owner Button */}
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button size="sm" variant="destructive">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Owner</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete <strong>{userData.email}</strong>?
+                                    <br /><br />
+                                    This will permanently delete:
+                                    <ul className="list-disc list-inside mt-2 space-y-1">
+                                      <li>The owner account</li>
+                                      <li>All their staff members</li>
+                                      <li>All their orders</li>
+                                      <li>All their settings</li>
+                                      <li>Their subscription</li>
+                                    </ul>
+                                    <br />
+                                    <strong className="text-destructive">This action cannot be undone.</strong>
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction
+                                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    onClick={() => handleDeleteOwner(userData.id, userData.email)}
+                                  >
+                                    Delete Owner
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </div>
                         </TableCell>
                       </TableRow>
