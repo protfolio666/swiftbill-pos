@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { resetPOSStore } from '@/stores/posStore';
@@ -57,6 +57,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [isSubscriptionLoaded, setIsSubscriptionLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Avoid duplicate subscription checks (startup can trigger both getSession + onAuthStateChange)
+  const subscriptionCheckPromiseRef = useRef<Promise<void> | null>(null);
+  const subscriptionCheckUserRef = useRef<string | null>(null);
+
   const fetchProfile = async (userId: string) => {
     const { data, error } = await supabase
       .from('profiles')
@@ -69,35 +73,50 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const fetchSubscription = async (userId: string) => {
-    setIsSubscriptionLoaded(false);
-    try {
-      const response = await supabase.functions.invoke('razorpay', {
-        body: { action: 'check-subscription', data: { userId } }
-      });
+  const fetchSubscription = (userId: string) => {
+    // Deduplicate in-flight checks for the same user
+    if (
+      subscriptionCheckPromiseRef.current &&
+      subscriptionCheckUserRef.current === userId
+    ) {
+      return subscriptionCheckPromiseRef.current;
+    }
 
-      if (response.data?.success) {
-        setHasActiveSubscription(!!response.data.hasActiveSubscription);
-        setSubscription(response.data.subscription || null);
-        setIsTrialActive(response.data.isTrialActive || false);
-        setTrialDaysRemaining(response.data.trialDaysRemaining || 0);
-      } else {
-        // If backend didn’t return success, treat as no subscription but mark as checked.
+    setIsSubscriptionLoaded(false);
+    subscriptionCheckUserRef.current = userId;
+
+    const p = (async () => {
+      try {
+        const response = await supabase.functions.invoke('razorpay', {
+          body: { action: 'check-subscription', data: { userId } },
+        });
+
+        if (response.data?.success) {
+          setHasActiveSubscription(!!response.data.hasActiveSubscription);
+          setSubscription(response.data.subscription || null);
+          setIsTrialActive(response.data.isTrialActive || false);
+          setTrialDaysRemaining(response.data.trialDaysRemaining || 0);
+        } else {
+          setHasActiveSubscription(false);
+          setSubscription(null);
+          setIsTrialActive(false);
+          setTrialDaysRemaining(0);
+        }
+      } catch (error) {
+        console.error('Error fetching subscription:', error);
         setHasActiveSubscription(false);
         setSubscription(null);
         setIsTrialActive(false);
         setTrialDaysRemaining(0);
+      } finally {
+        setIsSubscriptionLoaded(true);
+        // Clear the in-flight promise so future manual refreshes work
+        subscriptionCheckPromiseRef.current = null;
       }
-    } catch (error) {
-      // Don’t block UI on errors; just mark subscription as checked.
-      console.error('Error fetching subscription:', error);
-      setHasActiveSubscription(false);
-      setSubscription(null);
-      setIsTrialActive(false);
-      setTrialDaysRemaining(0);
-    } finally {
-      setIsSubscriptionLoaded(true);
-    }
+    })();
+
+    subscriptionCheckPromiseRef.current = p;
+    return p;
   };
 
   const createTrialSubscription = async (userId: string) => {
@@ -134,13 +153,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     // Set up auth state listener FIRST
     const { data: { subscription: authSub } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        // IMPORTANT: prevent one-frame flashes by marking subscription as "not loaded" BEFORE setting the user.
+        if (session?.user) {
+          setIsSubscriptionLoaded(false);
+        } else {
+          setIsSubscriptionLoaded(true);
+        }
+
         setSession(session);
         setUser(session?.user ?? null);
-        
+
         // Defer profile and subscription fetch with setTimeout
         if (session?.user) {
-          // For a new session, mark subscription as not-yet-loaded until fetch completes
-          setIsSubscriptionLoaded(false);
           setTimeout(() => {
             fetchProfile(session.user.id);
             fetchSubscription(session.user.id);
@@ -151,7 +175,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setHasActiveSubscription(false);
           setIsTrialActive(false);
           setTrialDaysRemaining(0);
-          setIsSubscriptionLoaded(true);
         }
 
         // Only end loading AFTER initial session check has completed
@@ -165,11 +188,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       initialSessionCheckedRef.current = true;
 
+      // Set subscription-loaded BEFORE setting user to avoid any auth-page flashes
+      if (session?.user) {
+        setIsSubscriptionLoaded(false);
+      } else {
+        setIsSubscriptionLoaded(true);
+      }
+
       setSession(session);
       setUser(session?.user ?? null);
 
       if (session?.user) {
-        setIsSubscriptionLoaded(false);
         fetchProfile(session.user.id);
         fetchSubscription(session.user.id);
       } else {
@@ -178,7 +207,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setHasActiveSubscription(false);
         setIsTrialActive(false);
         setTrialDaysRemaining(0);
-        setIsSubscriptionLoaded(true);
       }
 
       setIsLoading(false);

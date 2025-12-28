@@ -21,9 +21,13 @@ const IndexContent = () => {
   const { isTrialActive, trialDaysRemaining, subscription, refreshSubscription } = useAuth();
   const { brand } = usePOSStore();
 
-  // Refresh subscription on mount to get latest data
+  // Avoid immediate re-check after login (causes a second loading flash).
+  // Only refresh if we truly don't have subscription info yet.
   useEffect(() => {
-    refreshSubscription();
+    if (!subscription) {
+      refreshSubscription();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const renderContent = () => {
