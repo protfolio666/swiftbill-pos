@@ -6,8 +6,12 @@ import { toast } from 'sonner';
 import { MenuItem, Category, Order } from '@/types/pos';
 import { useAuth } from '@/contexts/AuthContext';
 
+// Global flag to prevent multiple sync hooks from running simultaneously
+let globalSyncLock = false;
+let lastSyncUserId: string | null = null;
+
 export function useNeonSync() {
-  const [isLoading, setIsLoading] = useState(false); // Start false - load from cache first
+  const [isLoading, setIsLoading] = useState(false);
   const [isSynced, setIsSynced] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncError, setSyncError] = useState<string | null>(null);
@@ -15,6 +19,7 @@ export function useNeonSync() {
   const previousUserIdRef = useRef<string | null>(null);
   const syncInProgressRef = useRef(false);
   const initialLoadDoneRef = useRef(false);
+  const hasLoadedCacheRef = useRef(false);
 
   const setCategories = usePOSStore((state) => state.setCategories);
   const setMenuItems = usePOSStore((state) => state.setMenuItems);
@@ -26,8 +31,21 @@ export function useNeonSync() {
   const updateMenuItemLocal = usePOSStore((state) => state.updateMenuItem);
   const deleteMenuItemLocal = usePOSStore((state) => state.deleteMenuItem);
 
+  // Check if we already have data in the store (from zustand persistence or previous load)
+  const hasExistingData = useCallback(() => {
+    const state = usePOSStore.getState();
+    return state.menuItems.length > 0 || state.categories.length > 0;
+  }, []);
+
   // Load data from cache immediately (no loading state shown to user)
   const loadFromCacheImmediate = useCallback((userId: string) => {
+    // Skip if we already have data and same user
+    if (hasExistingData() && lastSyncUserId === userId) {
+      hasLoadedCacheRef.current = true;
+      setIsSynced(true);
+      return true;
+    }
+
     const cachedCategories = offlineCache.loadFromCache<Category[]>('categories', userId);
     const cachedMenuItems = offlineCache.loadFromCache<MenuItem[]>('menuItems', userId);
     const cachedOrders = offlineCache.loadFromCache<Order[]>('orders', userId);
@@ -46,6 +64,9 @@ export function useNeonSync() {
       setBrand(cachedBrand.data);
     }
 
+    hasLoadedCacheRef.current = true;
+    lastSyncUserId = userId;
+
     // Check if cache is still valid
     const lastSync = offlineCache.getLastSyncTime(userId);
     if (lastSync && offlineCache.isCacheValid(lastSync)) {
@@ -53,14 +74,25 @@ export function useNeonSync() {
       return true; // Cache is valid
     }
     return false; // Cache expired or doesn't exist
-  }, [setCategories, setMenuItems, setOrders, setBrand]);
+  }, [setCategories, setMenuItems, setOrders, setBrand, hasExistingData]);
 
   // Background sync from Neon (silent - no loading indicators)
-  const syncFromNeonSilent = useCallback(async () => {
-    if (!user || syncInProgressRef.current) return;
+  const syncFromNeonSilent = useCallback(async (force = false) => {
+    if (!user) return;
     
+    // Use global lock to prevent multiple tabs/components from syncing
+    if (globalSyncLock && !force) return;
+    if (syncInProgressRef.current && !force) return;
+    
+    // Skip sync if we recently synced (within 30 seconds) and have data
+    if (!force && hasExistingData()) {
+      const lastSync = offlineCache.getLastSyncTime(user.id);
+      if (lastSync && Date.now() - lastSync < 30000) {
+        return; // Synced less than 30 seconds ago
+      }
+    }
+
     if (!navigator.onLine) {
-      // Offline - check if we need to show warning
       const lastSync = offlineCache.getLastSyncTime(user.id);
       if (lastSync && !offlineCache.isCacheValid(lastSync)) {
         setSyncError('Offline cache expired. Connect to internet to sync.');
@@ -68,6 +100,7 @@ export function useNeonSync() {
       return;
     }
 
+    globalSyncLock = true;
     syncInProgressRef.current = true;
     setSyncError(null);
 
@@ -156,16 +189,17 @@ export function useNeonSync() {
       // Don't show error toast for background sync - just log it
     } finally {
       syncInProgressRef.current = false;
+      globalSyncLock = false;
     }
-  }, [user, setCategories, setMenuItems, setOrders, setBrand]);
+  }, [user, setCategories, setMenuItems, setOrders, setBrand, hasExistingData]);
 
   // Network status listener
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
       setSyncError(null);
-      // Sync when coming back online
-      syncFromNeonSilent();
+      // Sync when coming back online (force it)
+      syncFromNeonSilent(true);
     };
 
     const handleOffline = () => {
@@ -192,14 +226,20 @@ export function useNeonSync() {
     return () => clearInterval(syncInterval);
   }, [user, isOnline, syncFromNeonSilent]);
 
-  // Initial load: cache first, then background sync
+  // Initial load: cache first, then background sync ONLY if needed
   useEffect(() => {
     const currentUserId = user?.id || null;
     
+    // Only do anything if user changed
+    if (previousUserIdRef.current === currentUserId && initialLoadDoneRef.current) {
+      return; // Same user, already loaded - do nothing
+    }
+
     if (previousUserIdRef.current !== currentUserId) {
-      // User changed - reset store
-      if (previousUserIdRef.current !== null) {
+      // User changed - reset store only if there was a previous user
+      if (previousUserIdRef.current !== null && currentUserId !== null) {
         resetPOSStore();
+        hasLoadedCacheRef.current = false;
       }
       previousUserIdRef.current = currentUserId;
       initialLoadDoneRef.current = false;
@@ -209,11 +249,10 @@ export function useNeonSync() {
         const cacheValid = loadFromCacheImmediate(currentUserId);
         initialLoadDoneRef.current = true;
         
-        // Step 2: Background sync if online
-        if (navigator.onLine) {
+        // Step 2: Background sync if online and cache is not fresh
+        if (navigator.onLine && !cacheValid) {
           syncFromNeonSilent();
-        } else if (!cacheValid) {
-          // Offline and cache expired
+        } else if (!navigator.onLine && !cacheValid) {
           setSyncError('No internet connection. Some data may be outdated.');
         }
       }
@@ -448,7 +487,7 @@ export function useNeonSync() {
       return;
     }
     setIsLoading(true);
-    await syncFromNeonSilent();
+    await syncFromNeonSilent(true); // Force sync
     setIsLoading(false);
     toast.success('Data refreshed');
   }, [syncFromNeonSilent]);
