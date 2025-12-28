@@ -70,26 +70,28 @@ serve(async (req) => {
         console.error('Error fetching profiles:', profileError);
       }
 
-      // Get all staff members to identify owners (where user_id = owner_id means they're an owner)
-      const { data: staffMembers, error: staffError } = await supabase
+      // Get ALL staff members to properly identify owners vs staff
+      const { data: allStaff, error: staffError } = await supabase
         .from('staff_members')
-        .select('user_id, owner_id, role')
-        .eq('role', 'owner');
+        .select('user_id, owner_id, role');
 
       if (staffError) {
         console.error('Error fetching staff members:', staffError);
       }
 
-      // Create a set of owner user IDs
-      const ownerUserIds = new Set(staffMembers?.map(s => s.user_id) || []);
+      // Create sets for filtering
+      const ownerUserIds = new Set(allStaff?.filter(s => s.role === 'owner').map(s => s.user_id) || []);
+      const allStaffUserIds = new Set(allStaff?.map(s => s.user_id) || []);
 
-      // Filter and combine data - only show owners
+      // Filter and combine data - only show owners (exclude all staff who aren't owners)
       const usersWithData = authUsers.users
         .filter(user => {
-          // Include user if they're an owner OR if they don't have a staff record yet (legacy/new users)
-          const hasStaffRecord = staffMembers?.some(s => s.user_id === user.id);
-          if (!hasStaffRecord) return true; // Show users without staff records (legacy users)
-          return ownerUserIds.has(user.id); // Only show owners
+          // If user has a staff record, they must be an owner to be shown
+          if (allStaffUserIds.has(user.id)) {
+            return ownerUserIds.has(user.id);
+          }
+          // Users without staff records are shown (legacy users who signed up but didn't complete setup)
+          return true;
         })
         .map(user => {
           const subscription = subscriptions?.find(s => s.user_id === user.id);
