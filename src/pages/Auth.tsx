@@ -95,6 +95,7 @@ const Auth = () => {
   const {
     signIn,
     signUp,
+    signOut,
     user,
     hasActiveSubscription,
     isTrialActive,
@@ -323,6 +324,16 @@ const Auth = () => {
                   Continue to App
                 </Button>
               )}
+              <Button 
+                onClick={async () => {
+                  await signOut();
+                  navigate('/auth');
+                }}
+                variant="ghost"
+                className="mt-2 text-muted-foreground hover:text-foreground"
+              >
+                Sign out and use different account
+              </Button>
             </div>
             
             <div className="grid md:grid-cols-2 gap-6">
