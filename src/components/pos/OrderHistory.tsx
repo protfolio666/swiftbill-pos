@@ -9,11 +9,15 @@ import {
   DollarSign,
   Printer,
   Download,
-  CalendarIcon
+  CalendarIcon,
+  Search,
+  MessageCircle,
+  X
 } from 'lucide-react';
 import { usePOSStore } from '@/stores/posStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -36,17 +40,32 @@ export function OrderHistory() {
   const { orders, brand } = usePOSStore();
   const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<'all' | 'today' | 'week'>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [exportStartDate, setExportStartDate] = useState<Date | undefined>();
   const [exportEndDate, setExportEndDate] = useState<Date | undefined>();
 
   const filteredOrders = useMemo(() => {
     return orders.filter((order) => {
       const orderDate = new Date(order.date);
-      if (filter === 'today') return isToday(orderDate);
-      if (filter === 'week') return isThisWeek(orderDate, { weekStartsOn: 1 });
-      return true;
+      
+      // Date filter
+      let dateMatch = true;
+      if (filter === 'today') dateMatch = isToday(orderDate);
+      if (filter === 'week') dateMatch = isThisWeek(orderDate, { weekStartsOn: 1 });
+      
+      // Search filter - search by customer name, phone, or order ID
+      let searchMatch = true;
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        searchMatch = 
+          order.id.toLowerCase().includes(query) ||
+          (order.customerName?.toLowerCase().includes(query) ?? false) ||
+          (order.customerPhone?.includes(query) ?? false);
+      }
+      
+      return dateMatch && searchMatch;
     });
-  }, [orders, filter]);
+  }, [orders, filter, searchQuery]);
 
   const salesSummary = useMemo(() => {
     const today = new Date();
@@ -76,6 +95,60 @@ export function OrderHistory() {
       }
       return next;
     });
+  };
+
+  // Generate WhatsApp receipt message
+  const generateWhatsAppMessage = (order: Order): string => {
+    const orderDate = new Date(order.date);
+    const itemsList = order.items
+      .map((item) => `• ${item.name} x${item.quantity} - ${brand.currency}${(item.price * item.quantity).toFixed(2)}`)
+      .join('\n');
+    
+    let message = `🧾 *Receipt from ${brand.name}*\n\n`;
+    message += `📋 Order: ${order.id}\n`;
+    message += `📅 Date: ${format(orderDate, 'MMM dd, yyyy')} at ${format(orderDate, 'hh:mm a')}\n`;
+    if (order.customerName) message += `👤 Customer: ${order.customerName}\n`;
+    message += `\n*Items:*\n${itemsList}\n\n`;
+    message += `Subtotal: ${brand.currency}${order.subtotal.toFixed(2)}\n`;
+    if (order.discount && order.discount > 0) {
+      message += `Discount: -${brand.currency}${order.discount.toFixed(2)}\n`;
+    }
+    if ((order.cgst ?? 0) > 0 || (order.sgst ?? 0) > 0) {
+      message += `CGST: ${brand.currency}${(order.cgst ?? 0).toFixed(2)}\n`;
+      message += `SGST: ${brand.currency}${(order.sgst ?? 0).toFixed(2)}\n`;
+    }
+    message += `*Total: ${brand.currency}${order.total.toFixed(2)}*\n\n`;
+    message += `Thank you for your visit! 🙏`;
+    
+    return message;
+  };
+
+  // Send receipt via WhatsApp
+  const sendWhatsApp = (order: Order) => {
+    if (!order.customerPhone) {
+      toast.error('No phone number available for this order');
+      return;
+    }
+    
+    // Clean phone number - remove spaces and special characters
+    let phone = order.customerPhone.replace(/[\s\-\(\)]/g, '');
+    
+    // Add country code if not present (assuming India +91)
+    if (!phone.startsWith('+')) {
+      if (phone.startsWith('0')) {
+        phone = '91' + phone.substring(1);
+      } else if (!phone.startsWith('91')) {
+        phone = '91' + phone;
+      }
+    } else {
+      phone = phone.substring(1); // Remove the + for WhatsApp URL
+    }
+    
+    const message = encodeURIComponent(generateWhatsAppMessage(order));
+    const whatsappUrl = `https://wa.me/${phone}?text=${message}`;
+    
+    window.open(whatsappUrl, '_blank');
+    toast.success('Opening WhatsApp...');
   };
 
   const exportToCSV = () => {
@@ -693,24 +766,44 @@ export function OrderHistory() {
       {/* Orders Section */}
       <Card className="border-0 pos-shadow overflow-hidden mb-6">
         <CardHeader className="border-b border-border bg-card">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-              <Receipt className="w-5 h-5" />
-              Orders ({filteredOrders.length})
-            </CardTitle>
-            {/* Filter Buttons */}
-            <div className="flex gap-2">
-              {(['all', 'today', 'week'] as const).map((f) => (
-                <Button
-                  key={f}
-                  variant={filter === f ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setFilter(f)}
-                  className={filter === f ? 'pos-gradient' : ''}
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Receipt className="w-5 h-5" />
+                Orders ({filteredOrders.length})
+              </CardTitle>
+              {/* Filter Buttons */}
+              <div className="flex gap-2">
+                {(['all', 'today', 'week'] as const).map((f) => (
+                  <Button
+                    key={f}
+                    variant={filter === f ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setFilter(f)}
+                    className={filter === f ? 'pos-gradient' : ''}
+                  >
+                    {f === 'all' ? 'All' : f === 'today' ? 'Today' : 'Week'}
+                  </Button>
+                ))}
+              </div>
+            </div>
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by customer name, phone, or order ID..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-9 pr-9"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  {f === 'all' ? 'All' : f === 'today' ? 'Today' : 'Week'}
-                </Button>
-              ))}
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
         </CardHeader>
@@ -771,8 +864,20 @@ export function OrderHistory() {
                             className="gap-1"
                           >
                             <Printer className="w-4 h-4" />
-                            Print
+                            <span className="hidden sm:inline">Print</span>
                           </Button>
+
+                          {order.customerPhone && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => sendWhatsApp(order)}
+                              className="gap-1 text-green-600 hover:text-green-700 hover:bg-green-50 border-green-200"
+                            >
+                              <MessageCircle className="w-4 h-4" />
+                              <span className="hidden sm:inline">WhatsApp</span>
+                            </Button>
+                          )}
 
                           <button onClick={() => toggleExpanded(order.id)}>
                             {isExpanded ? (
@@ -790,7 +895,20 @@ export function OrderHistory() {
                             {/* Customer Details */}
                             {(order.customerName || order.customerPhone) && (
                               <div className="border-b border-border pb-2 mb-2">
-                                <p className="text-xs font-medium text-muted-foreground mb-1">Customer Details</p>
+                                <div className="flex items-center justify-between mb-1">
+                                  <p className="text-xs font-medium text-muted-foreground">Customer Details</p>
+                                  {order.customerPhone && (
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => sendWhatsApp(order)}
+                                      className="h-6 px-2 text-green-600 hover:text-green-700 hover:bg-green-50 gap-1"
+                                    >
+                                      <MessageCircle className="w-3 h-3" />
+                                      <span className="text-xs">Send Receipt</span>
+                                    </Button>
+                                  )}
+                                </div>
                                 {order.customerName && (
                                   <p className="text-sm text-foreground">Name: {order.customerName}</p>
                                 )}
