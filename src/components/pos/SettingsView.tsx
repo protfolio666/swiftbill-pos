@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { useNeon } from '@/contexts/NeonContext';
 import { supabase } from '@/integrations/supabase/client';
 import { format } from 'date-fns';
+import { PrinterSettings } from './PrinterSettings';
 
 declare global {
   interface Window {
@@ -612,6 +613,9 @@ export function SettingsView() {
           {isSaving ? 'Saving...' : 'Save Settings'}
         </Button>
       </div>
+
+      {/* Printer Settings */}
+      <PrinterSettings />
 
       {/* Preview Card */}
       <div className="bg-card rounded-2xl border border-border p-6 space-y-4">

@@ -8,6 +8,7 @@ import { Order } from '@/types/pos';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNeon } from '@/contexts/NeonContext';
 import QRCode from 'qrcode';
+import { thermalPrinter } from '@/services/thermalPrinter';
 
 // Generate UPI payment link
 const generateUpiLink = (upiId: string, name: string, amount: number, orderId: string) => {
@@ -59,6 +60,22 @@ export function Cart() {
   };
 
   const printReceipt = async (order: Order) => {
+    // Check if thermal printing is enabled
+    const thermalPrefs = localStorage.getItem('thermalPrinterPrefs');
+    const useThermal = thermalPrefs ? JSON.parse(thermalPrefs).useThermalPrinter : false;
+
+    if (useThermal && thermalPrinter.isConnected()) {
+      try {
+        await thermalPrinter.printReceipt(order, brand);
+        toast.success('Receipt sent to thermal printer');
+        return;
+      } catch (error) {
+        console.error('Thermal print failed:', error);
+        toast.error('Thermal print failed, using browser print');
+        // Fall through to browser print
+      }
+    }
+
     const orderDate = new Date(order.date);
     const hasGST = (order.cgst ?? 0) > 0 || (order.sgst ?? 0) > 0;
     const taxableAmount = order.subtotal - (order.discount ?? 0);
