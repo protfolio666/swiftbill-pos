@@ -20,23 +20,27 @@ export function WaiterView() {
 
   const isWaiter = staffMember?.role === 'waiter';
 
-  // Orders placed by this waiter
-  const myPendingOrders = kotOrders.filter(o => 
-    o.waiter_id === staffMember?.id && 
+  // ALL orders for the restaurant that are pending/in kitchen
+  const allPendingOrders = kotOrders.filter(o => 
     ['pending', 'assigned', 'preparing'].includes(o.status)
   );
 
-  // Orders ready to serve
-  const readyToServe = kotOrders.filter(o => 
-    o.waiter_id === staffMember?.id && 
-    o.status === 'completed'
-  );
+  // Orders placed by this waiter specifically
+  const myPendingOrders = allPendingOrders.filter(o => o.waiter_id === staffMember?.id);
 
-  // Recently served
+  // ALL orders ready to serve (any waiter can see and serve)
+  const readyToServe = kotOrders.filter(o => o.status === 'completed');
+
+  // Orders served by this waiter
   const recentlyServed = kotOrders.filter(o => 
     o.waiter_id === staffMember?.id && 
     o.status === 'served'
   ).slice(0, 5);
+
+  // All orders in the restaurant (for visibility)
+  const allActiveOrders = kotOrders.filter(o => 
+    !['served', 'cancelled'].includes(o.status)
+  );
 
   // Play sound when new orders become ready
   useEffect(() => {
@@ -152,14 +156,14 @@ export function WaiterView() {
         </div>
       )}
 
-      {/* In Progress Orders */}
+      {/* All Active Orders in Restaurant */}
       <div className="space-y-3">
         <h2 className="text-lg font-semibold flex items-center gap-2">
           <ChefHat className="h-5 w-5" />
-          In Kitchen ({myPendingOrders.length})
+          All Kitchen Orders ({allPendingOrders.length})
         </h2>
 
-        {myPendingOrders.length === 0 ? (
+        {allPendingOrders.length === 0 ? (
           <Card>
             <CardContent className="p-8 text-center text-muted-foreground">
               <ClipboardList className="h-12 w-12 mx-auto mb-3 opacity-50" />
@@ -169,14 +173,17 @@ export function WaiterView() {
           </Card>
         ) : (
           <div className="grid gap-3">
-            {myPendingOrders.map((order) => (
-              <Card key={order.id}>
+            {allPendingOrders.map((order) => (
+              <Card key={order.id} className={order.waiter_id === staffMember?.id ? 'border-primary/50' : ''}>
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-medium">Order #{order.order_id.slice(-6)}</span>
                         {getStatusBadge(order.status)}
+                        {order.waiter_id === staffMember?.id && (
+                          <Badge variant="outline" className="text-xs">My Order</Badge>
+                        )}
                       </div>
                       {order.table_number && (
                         <p className="text-sm text-muted-foreground mt-1">Table {order.table_number}</p>
