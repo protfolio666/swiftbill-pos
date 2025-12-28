@@ -92,16 +92,25 @@ const SUBSCRIPTION_PLANS = [
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { signIn, signUp, user, hasActiveSubscription, isTrialActive, trialDaysRemaining, refreshSubscription } = useAuth();
+  const {
+    signIn,
+    signUp,
+    user,
+    hasActiveSubscription,
+    isTrialActive,
+    trialDaysRemaining,
+    refreshSubscription,
+    isSubscriptionLoaded,
+  } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isPaymentLoading, setIsPaymentLoading] = useState(false);
   const [showSubscription, setShowSubscription] = useState(false);
   const [pendingUser, setPendingUser] = useState<{ email: string } | null>(null);
-  
+
   // Login form state
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
-  
+
   // Signup form state
   const [signupEmail, setSignupEmail] = useState('');
   const [signupPassword, setSignupPassword] = useState('');
@@ -110,13 +119,22 @@ const Auth = () => {
 
   // Check if user is logged in and has subscription
   useEffect(() => {
-    if (user && hasActiveSubscription) {
+    if (!user) {
+      setShowSubscription(false);
+      setPendingUser(null);
+      return;
+    }
+
+    // IMPORTANT: wait until subscription status is actually loaded
+    if (!isSubscriptionLoaded) return;
+
+    if (hasActiveSubscription) {
       navigate('/');
-    } else if (user && !hasActiveSubscription) {
+    } else {
       setShowSubscription(true);
       setPendingUser({ email: user.email || '' });
     }
-  }, [user, hasActiveSubscription, navigate]);
+  }, [user, isSubscriptionLoaded, hasActiveSubscription, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -263,7 +281,7 @@ const Auth = () => {
     }
   };
 
-  if (showSubscription && user) {
+  if (showSubscription && user && isSubscriptionLoaded) {
     return (
       <>
         <Helmet>
