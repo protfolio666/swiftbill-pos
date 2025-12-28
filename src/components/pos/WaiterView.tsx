@@ -1,15 +1,22 @@
+import { useEffect, useRef, useState } from 'react';
 import { useKOT } from '@/hooks/useKOT';
+import { useOrderNotifications } from '@/hooks/useOrderNotifications';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ClipboardList, CheckCircle, Clock, ChefHat, Bell } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { ClipboardList, CheckCircle, Clock, ChefHat, Bell, Volume2, VolumeX } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { usePOSStore } from '@/stores/posStore';
 import { toast } from 'sonner';
 
 export function WaiterView() {
   const { staffMember, kotOrders, updateKOTOrderStatus } = useKOT();
+  const { playSound, toggleSound } = useOrderNotifications();
   const { brand } = usePOSStore();
+
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const previousReadyRef = useRef<string[]>([]);
 
   const isWaiter = staffMember?.role === 'waiter';
 
@@ -30,6 +37,23 @@ export function WaiterView() {
     o.waiter_id === staffMember?.id && 
     o.status === 'served'
   ).slice(0, 5);
+
+  // Play sound when new orders become ready
+  useEffect(() => {
+    const currentReadyIds = readyToServe.map(o => o.id);
+    const newReady = currentReadyIds.filter(id => !previousReadyRef.current.includes(id));
+    
+    if (newReady.length > 0 && soundEnabled) {
+      playSound();
+    }
+    
+    previousReadyRef.current = currentReadyIds;
+  }, [readyToServe, soundEnabled, playSound]);
+
+  const handleToggleSound = (enabled: boolean) => {
+    setSoundEnabled(enabled);
+    toggleSound(enabled);
+  };
 
   const handleMarkServed = async (orderId: string) => {
     await updateKOTOrderStatus(orderId, 'served');
@@ -65,15 +89,22 @@ export function WaiterView() {
   return (
     <div className="p-4 space-y-6 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <div>
           <h1 className="text-2xl font-bold">Welcome, {staffMember?.name}</h1>
           <p className="text-muted-foreground">Manage your orders</p>
         </div>
-        <Badge variant="outline" className="text-lg px-4 py-2">
-          <ClipboardList className="h-4 w-4 mr-2" />
-          Waiter
-        </Badge>
+        <div className="flex items-center gap-4">
+          {/* Sound Toggle */}
+          <div className="flex items-center gap-2">
+            {soundEnabled ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5 text-muted-foreground" />}
+            <Switch checked={soundEnabled} onCheckedChange={handleToggleSound} />
+          </div>
+          <Badge variant="outline" className="text-lg px-4 py-2">
+            <ClipboardList className="h-4 w-4 mr-2" />
+            Waiter
+          </Badge>
+        </div>
       </div>
 
       {/* Ready to Serve - Highlighted */}
