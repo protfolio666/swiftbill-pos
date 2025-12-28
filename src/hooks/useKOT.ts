@@ -449,12 +449,39 @@ export function useKOT() {
   useEffect(() => {
     if (!ownerId || !isKOTEnabled) return;
 
+    let previousOrderCount = kotOrders.length;
+
     const ordersChannel = supabase
       .channel('kot-orders')
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'INSERT',
+          schema: 'public',
+          table: 'kot_orders',
+          filter: `owner_id=eq.${ownerId}`,
+        },
+        (payload) => {
+          console.log('New KOT order received:', payload);
+          fetchKOTOrders();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'kot_orders',
+          filter: `owner_id=eq.${ownerId}`,
+        },
+        () => {
+          fetchKOTOrders();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
           schema: 'public',
           table: 'kot_orders',
           filter: `owner_id=eq.${ownerId}`,
