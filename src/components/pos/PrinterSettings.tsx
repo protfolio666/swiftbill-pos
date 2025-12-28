@@ -1,16 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, forwardRef } from 'react';
 import { Printer, Wifi, Bluetooth, Usb, Check, X, TestTube, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { thermalPrinter, PrinterConnectionType, PrinterPaperWidth } from '@/services/thermalPrinter';
 
-export function PrinterSettings() {
+export const PrinterSettings = forwardRef<HTMLDivElement>(function PrinterSettings(_, ref) {
   const [connectionType, setConnectionType] = useState<PrinterConnectionType>('usb');
   const [paperWidth, setPaperWidth] = useState<PrinterPaperWidth>('80mm');
   const [networkIp, setNetworkIp] = useState('');
@@ -121,33 +120,31 @@ export function PrinterSettings() {
   };
 
   return (
-    <Card className="border-0 pos-shadow">
-      <CardHeader>
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
-            <Printer className="w-5 h-5 text-blue-600" />
-          </div>
-          <div className="flex-1">
-            <CardTitle className="text-lg">Thermal Printer</CardTitle>
-            <CardDescription>Configure direct thermal printing</CardDescription>
-          </div>
-          <Badge variant={printerState.isConnected ? 'default' : 'secondary'} className={printerState.isConnected ? 'bg-green-500' : ''}>
-            {printerState.isConnected ? 'Connected' : 'Not Connected'}
-          </Badge>
+    <div ref={ref} className="bg-card rounded-2xl border border-border p-6 space-y-6">
+      <div className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+          <Printer className="w-5 h-5 text-blue-600" />
         </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {/* Enable/Disable Toggle */}
-        <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-xl">
-          <div>
-            <p className="font-medium text-foreground">Use Thermal Printer</p>
-            <p className="text-sm text-muted-foreground">Print receipts directly to thermal printer</p>
-          </div>
-          <Switch
-            checked={useThermalPrinter}
-            onCheckedChange={handleToggleThermalPrinter}
-          />
+        <div className="flex-1">
+          <h2 className="font-semibold text-lg text-foreground">Thermal Printer</h2>
+          <p className="text-sm text-muted-foreground">Configure direct thermal printing</p>
         </div>
+        <Badge variant={printerState.isConnected ? 'default' : 'secondary'} className={printerState.isConnected ? 'bg-green-500' : ''}>
+          {printerState.isConnected ? 'Connected' : 'Not Connected'}
+        </Badge>
+      </div>
+
+      {/* Enable/Disable Toggle */}
+      <div className="flex items-center justify-between p-4 bg-secondary/50 rounded-xl">
+        <div>
+          <p className="font-medium text-foreground">Use Thermal Printer</p>
+          <p className="text-sm text-muted-foreground">Print receipts directly to thermal printer</p>
+        </div>
+        <Switch
+          checked={useThermalPrinter}
+          onCheckedChange={handleToggleThermalPrinter}
+        />
+      </div>
 
         {useThermalPrinter && (
           <>
@@ -297,7 +294,6 @@ export function PrinterSettings() {
             )}
           </>
         )}
-      </CardContent>
-    </Card>
+    </div>
   );
-}
+});
