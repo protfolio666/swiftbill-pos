@@ -97,10 +97,8 @@ export function SettingsView() {
     upiId: brand.upiId || '',
   });
 
-  // Refresh subscription data when settings view loads
-  useEffect(() => {
-    refreshSubscription();
-  }, []);
+  // Do NOT call refreshSubscription here - it causes the app to flash
+  // back to loading state. Subscription is already fetched on login.
 
   const handleSave = async () => {
     setIsSaving(true);
