@@ -1,3 +1,6 @@
+// Thermal Printer Service
+import { OrderType } from '@/types/pos';
+
 // Type declarations for Web APIs
 declare global {
   interface Navigator {
@@ -87,6 +90,33 @@ export interface ThermalPrinterState {
   connectionType: PrinterConnectionType | null;
   deviceName: string | null;
   paperWidth: PrinterPaperWidth;
+}
+
+// Order data type for printing
+export interface PrintOrderData {
+  id: string;
+  items: Array<{ name: string; quantity: number; price: number }>;
+  subtotal: number;
+  discount?: number;
+  cgst?: number;
+  sgst?: number;
+  total: number;
+  date: Date;
+  orderType: OrderType;
+  tableNumber?: number;
+  customerName?: string;
+  customerPhone?: string;
+}
+
+export interface PrintBrandData {
+  name: string;
+  currency: string;
+  gstin?: string;
+  showGstOnReceipt?: boolean;
+  upiId?: string;
+  cgstRate?: number;
+  sgstRate?: number;
+  taxRate?: number;
 }
 
 // Character widths per paper size
@@ -330,29 +360,7 @@ class ThermalPrinterService {
   }
 
   // Generate receipt data for thermal printer
-  generateReceiptData(order: {
-    id: string;
-    items: Array<{ name: string; quantity: number; price: number }>;
-    subtotal: number;
-    discount?: number;
-    cgst?: number;
-    sgst?: number;
-    total: number;
-    date: Date;
-    orderType: 'dine-in' | 'takeaway' | 'delivery';
-    tableNumber?: number;
-    customerName?: string;
-    customerPhone?: string;
-  }, brand: {
-    name: string;
-    currency: string;
-    gstin?: string;
-    showGstOnReceipt?: boolean;
-    upiId?: string;
-    cgstRate?: number;
-    sgstRate?: number;
-    taxRate?: number;
-  }): string {
+  generateReceiptData(order: PrintOrderData, brand: PrintBrandData): string {
     let data = '';
     const orderDate = new Date(order.date);
 
@@ -473,7 +481,7 @@ class ThermalPrinterService {
   }
 
   // Print receipt
-  async printReceipt(order: Parameters<typeof this.generateReceiptData>[0], brand: Parameters<typeof this.generateReceiptData>[1]): Promise<boolean> {
+  async printReceipt(order: PrintOrderData, brand: PrintBrandData): Promise<boolean> {
     try {
       const data = this.generateReceiptData(order, brand);
       await this.sendData(data);

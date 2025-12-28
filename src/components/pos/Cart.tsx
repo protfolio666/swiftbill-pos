@@ -8,7 +8,7 @@ import { Order } from '@/types/pos';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNeon } from '@/contexts/NeonContext';
 import QRCode from 'qrcode';
-import { thermalPrinter } from '@/services/thermalPrinter';
+import { thermalPrinter, PrintOrderData } from '@/services/thermalPrinter';
 
 // Generate UPI payment link
 const generateUpiLink = (upiId: string, name: string, amount: number, orderId: string) => {
@@ -66,7 +66,7 @@ export function Cart() {
 
     if (useThermal && thermalPrinter.isConnected()) {
       try {
-        await thermalPrinter.printReceipt(order, brand);
+        await thermalPrinter.printReceipt(order as PrintOrderData, brand);
         toast.success('Receipt sent to thermal printer');
         return;
       } catch (error) {
