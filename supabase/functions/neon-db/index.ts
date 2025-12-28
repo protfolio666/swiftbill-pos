@@ -108,6 +108,7 @@ serve(async (req) => {
         console.log('Deleting user from Neon:', data.userId);
         
         // Delete related data first (cascade)
+        await sql`DELETE FROM staff_members WHERE owner_id = ${data.userId}`;
         await sql`DELETE FROM orders WHERE user_id = ${data.userId}`;
         await sql`DELETE FROM menu_items WHERE user_id = ${data.userId}`;
         await sql`DELETE FROM categories WHERE user_id = ${data.userId}`;
@@ -116,6 +117,62 @@ serve(async (req) => {
         // Finally delete the user
         result = await sql`DELETE FROM users WHERE id = ${data.userId} RETURNING *`;
         console.log('User deleted from Neon:', result);
+        break;
+
+      case 'syncStaff':
+        // Ensure staff_members table exists with all columns
+        try {
+          await sql`
+            CREATE TABLE IF NOT EXISTS staff_members (
+              id UUID PRIMARY KEY,
+              user_id UUID NOT NULL,
+              owner_id UUID NOT NULL,
+              name TEXT NOT NULL,
+              phone TEXT,
+              role TEXT NOT NULL,
+              restaurant_name TEXT,
+              owner_email TEXT,
+              is_active BOOLEAN DEFAULT true,
+              chef_status TEXT DEFAULT 'offline',
+              created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+              updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            )
+          `;
+        } catch (tableError) {
+          console.log('Staff table already exists or error:', tableError);
+        }
+
+        // Sync multiple staff members
+        const staffList = data.staff || [];
+        console.log('Syncing staff members:', staffList.length);
+        
+        for (const staff of staffList) {
+          const existsStaff = await sql`SELECT id FROM staff_members WHERE id = ${staff.id} LIMIT 1`;
+          if (existsStaff.length > 0) {
+            await sql`
+              UPDATE staff_members 
+              SET user_id = ${staff.user_id},
+                  owner_id = ${staff.owner_id},
+                  name = ${staff.name},
+                  phone = ${staff.phone || null},
+                  role = ${staff.role},
+                  restaurant_name = ${staff.restaurant_name || null},
+                  owner_email = ${staff.owner_email || null},
+                  is_active = ${staff.is_active ?? true},
+                  chef_status = ${staff.chef_status || 'offline'},
+                  updated_at = NOW()
+              WHERE id = ${staff.id}`;
+          } else {
+            await sql`
+              INSERT INTO staff_members (id, user_id, owner_id, name, phone, role, restaurant_name, owner_email, is_active, chef_status) 
+              VALUES (${staff.id}, ${staff.user_id}, ${staff.owner_id}, ${staff.name}, ${staff.phone || null}, ${staff.role}, ${staff.restaurant_name || null}, ${staff.owner_email || null}, ${staff.is_active ?? true}, ${staff.chef_status || 'offline'})`;
+          }
+        }
+        result = await sql`SELECT * FROM staff_members ORDER BY created_at DESC`;
+        break;
+
+      case 'getStaff':
+        result = await sql`SELECT * FROM staff_members ORDER BY created_at DESC`;
         break;
 
       case 'getUsers':
