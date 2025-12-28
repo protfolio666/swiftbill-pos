@@ -335,7 +335,7 @@ export function Cart() {
       </html>
     `;
 
-    // Create a hidden iframe for printing - works better on Android
+    // Create a hidden iframe for printing
     const printFrame = document.createElement('iframe');
     printFrame.style.position = 'fixed';
     printFrame.style.right = '0';
@@ -343,6 +343,8 @@ export function Cart() {
     printFrame.style.width = '0';
     printFrame.style.height = '0';
     printFrame.style.border = 'none';
+    printFrame.style.visibility = 'hidden';
+    printFrame.setAttribute('sandbox', 'allow-same-origin allow-scripts');
     document.body.appendChild(printFrame);
 
     const frameDoc = printFrame.contentWindow?.document;
@@ -352,37 +354,48 @@ export function Cart() {
       frameDoc.close();
 
       // Wait for content to load then print
-      printFrame.onload = () => {
+      const triggerPrint = () => {
         setTimeout(() => {
           try {
             printFrame.contentWindow?.focus();
             printFrame.contentWindow?.print();
           } catch (e) {
-            // Fallback: trigger print directly
-            window.print();
+            console.error('Print failed:', e);
+            toast.error('Print failed. Please try again.');
           }
           // Clean up iframe after printing
           setTimeout(() => {
-            document.body.removeChild(printFrame);
-          }, 1000);
+            if (document.body.contains(printFrame)) {
+              document.body.removeChild(printFrame);
+            }
+          }, 2000);
         }, 300);
       };
 
-      // Trigger load event manually if content is already loaded
+      printFrame.onload = triggerPrint;
+
+      // Trigger print if content is already loaded
       if (frameDoc.readyState === 'complete') {
-        printFrame.onload?.(new Event('load'));
+        triggerPrint();
       }
     } else {
-      // Fallback for browsers that don't support iframe printing
-      const printWindow = window.open('', '_blank');
-      if (printWindow) {
-        printWindow.document.write(receiptContent);
-        printWindow.document.close();
-        printWindow.focus();
-        setTimeout(() => {
-          printWindow.print();
-        }, 300);
+      // Fallback: Create blob URL and open in new tab
+      const blob = new Blob([receiptContent], { type: 'text/html' });
+      const blobUrl = URL.createObjectURL(blob);
+      const printTab = window.open(blobUrl, '_blank');
+      if (printTab) {
+        printTab.onload = () => {
+          setTimeout(() => {
+            printTab.print();
+            URL.revokeObjectURL(blobUrl);
+          }, 500);
+        };
+      } else {
+        toast.error('Unable to open print window. Please check popup settings.');
+        URL.revokeObjectURL(blobUrl);
       }
+      // Cleanup iframe
+      document.body.removeChild(printFrame);
     }
   };
 
@@ -470,7 +483,7 @@ export function Cart() {
       </div>
 
       {/* Cart Summary - fixed at bottom */}
-      <div className="border-t border-border px-3 py-2 space-y-2 bg-card shrink-0">
+      <div className="border-t border-border px-3 py-2 pb-4 space-y-2 bg-card shrink-0 max-h-[60vh] overflow-y-auto">
         {cart.length > 0 ? (
           <>
             {/* Order Type Selection */}
@@ -593,16 +606,17 @@ export function Cart() {
             Add items to generate a bill.
           </div>
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full h-8"
-          disabled={!lastOrder}
-          onClick={() => lastOrder && printReceipt(lastOrder)}
-        >
-          <Printer className="w-4 h-4 mr-1" />
-          Print Last Bill
-        </Button>
+        {lastOrder && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full h-8 mb-2"
+            onClick={() => printReceipt(lastOrder)}
+          >
+            <Printer className="w-4 h-4 mr-1" />
+            Print Last Bill
+          </Button>
+        )}
       </div>
     </div>
   );
