@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { Helmet } from 'react-helmet-async';
-import { Shield, Users, RefreshCw, Calendar, ArrowLeft, Crown, Clock, Ban, Trash2 } from 'lucide-react';
+import { Shield, Users, RefreshCw, Calendar, ArrowLeft, Crown, Clock, Ban, Trash2, Database } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
 
@@ -43,6 +43,7 @@ const Admin = () => {
   const [extendDays, setExtendDays] = useState('7');
   const [editPlan, setEditPlan] = useState('');
   const [editStatus, setEditStatus] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     if (user?.email !== ADMIN_EMAIL) {
@@ -63,34 +64,38 @@ const Admin = () => {
       if (error) throw error;
       if (data?.users) {
         setUsers(data.users);
-        
-        // Sync users to Neon DB
-        const usersToSync = data.users.map((u: UserData) => ({
-          id: u.id,
-          email: u.email,
-          restaurant_name: u.profile?.restaurant_name || null,
-          owner_name: u.profile?.owner_name || null,
-          plan_name: u.subscription?.plan_name || 'trial',
-          subscription_status: u.subscription?.status || 'pending',
-          valid_until: u.subscription?.valid_until || null
-        }));
-
-        // Sync to Neon in background
-        supabase.functions.invoke('neon-db', {
-          body: { action: 'syncUsers', data: { users: usersToSync } }
-        }).then(({ error: syncError }) => {
-          if (syncError) {
-            console.error('Failed to sync users to Neon:', syncError);
-          } else {
-            console.log('Users synced to Neon DB');
-          }
-        });
       }
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('Failed to fetch users');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const syncToNeon = async () => {
+    setIsSyncing(true);
+    try {
+      // Get full sync data from admin endpoint
+      const { data: syncData, error: syncError } = await supabase.functions.invoke('admin', {
+        body: { action: 'full-sync-neon' }
+      });
+
+      if (syncError) throw syncError;
+
+      // Sync all owners to Neon
+      const { error: neonError } = await supabase.functions.invoke('neon-db', {
+        body: { action: 'syncUsers', data: { users: syncData.owners } }
+      });
+
+      if (neonError) throw neonError;
+
+      toast.success(`Synced ${syncData.count} owners to Neon DB`);
+    } catch (error) {
+      console.error('Error syncing to Neon:', error);
+      toast.error('Failed to sync to Neon DB');
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -241,10 +246,16 @@ const Admin = () => {
               </div>
             </div>
             
-            <Button onClick={fetchUsers} disabled={isLoading}>
-              <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={syncToNeon} disabled={isSyncing} variant="outline">
+                <Database className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-pulse' : ''}`} />
+                {isSyncing ? 'Syncing...' : 'Sync to Neon'}
+              </Button>
+              <Button onClick={fetchUsers} disabled={isLoading}>
+                <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
           </div>
 
           {/* Stats Cards */}

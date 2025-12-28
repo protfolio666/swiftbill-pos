@@ -287,9 +287,78 @@ serve(async (req) => {
         throw authError;
       }
 
+      // 7. Sync deletion to Neon DB (fire and forget)
+      try {
+        const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+        const neonDbUrl = `${supabaseUrl}/functions/v1/neon-db`;
+        
+        fetch(neonDbUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': req.headers.get('Authorization') || '',
+          },
+          body: JSON.stringify({ action: 'deleteUser', data: { userId } })
+        }).then(res => {
+          console.log('Neon sync delete response:', res.status);
+        }).catch(err => {
+          console.error('Neon sync delete error:', err);
+        });
+      } catch (neonError) {
+        console.error('Failed to sync deletion to Neon:', neonError);
+        // Don't throw - primary deletion succeeded
+      }
+
       console.log('Owner deleted successfully:', userId);
 
       return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (action === 'full-sync-neon') {
+      // Get all owners with their full profile data for Neon sync
+      const { data: authUsers, error: usersError } = await supabase.auth.admin.listUsers();
+      
+      if (usersError) throw usersError;
+
+      // Get all data
+      const { data: subscriptions } = await supabase.from('subscriptions').select('*');
+      const { data: profiles } = await supabase.from('profiles').select('*');
+      const { data: allStaff } = await supabase.from('staff_members').select('user_id, owner_id, role');
+
+      // Filter to only owners
+      const ownerUserIds = new Set(allStaff?.filter(s => s.role === 'owner').map(s => s.user_id) || []);
+      const allStaffUserIds = new Set(allStaff?.map(s => s.user_id) || []);
+
+      const ownersToSync = authUsers.users
+        .filter(u => {
+          if (allStaffUserIds.has(u.id)) {
+            return ownerUserIds.has(u.id);
+          }
+          return true; // Legacy users
+        })
+        .map(u => {
+          const profile = profiles?.find(p => p.user_id === u.id);
+          const subscription = subscriptions?.find(s => s.user_id === u.id);
+          return {
+            id: u.id,
+            email: u.email,
+            restaurant_name: profile?.restaurant_name || null,
+            owner_name: profile?.owner_name || null,
+            phone: profile?.phone || null,
+            address: profile?.address || null,
+            gstin: profile?.gstin || null,
+            logo_url: profile?.logo_url || null,
+            plan_name: subscription?.plan_name || 'trial',
+            subscription_status: subscription?.status || 'pending',
+            valid_until: subscription?.valid_until || null
+          };
+        });
+
+      console.log('Full sync to Neon - owners count:', ownersToSync.length);
+
+      return new Response(JSON.stringify({ success: true, owners: ownersToSync, count: ownersToSync.length }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
