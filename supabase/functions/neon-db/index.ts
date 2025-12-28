@@ -154,9 +154,19 @@ serve(async (req) => {
         break;
 
       case 'createOrder':
+        // First ensure customer columns exist
+        try {
+          await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_name TEXT`;
+          await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_phone TEXT`;
+          await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type TEXT`;
+          await sql`ALTER TABLE orders ADD COLUMN IF NOT EXISTS table_number INTEGER`;
+        } catch (migrationError) {
+          console.log('Orders migration check completed');
+        }
+        
         result = await sql`
-          INSERT INTO orders (items, total, payment_method, status, user_id) 
-          VALUES (${JSON.stringify(data.items)}, ${data.total}, ${data.payment_method}, ${data.status || 'completed'}, ${userId}) 
+          INSERT INTO orders (items, total, payment_method, status, user_id, customer_name, customer_phone, order_type, table_number) 
+          VALUES (${JSON.stringify(data.items)}, ${data.total}, ${data.payment_method}, ${data.status || 'completed'}, ${userId}, ${data.customer_name || null}, ${data.customer_phone || null}, ${data.order_type || null}, ${data.table_number || null}) 
           RETURNING *`;
         break;
 

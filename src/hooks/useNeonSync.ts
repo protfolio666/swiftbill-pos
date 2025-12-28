@@ -120,7 +120,10 @@ export function useNeonSync() {
           total: Number(order.total),
           date: new Date(order.created_at),
           status: order.status as 'pending' | 'completed' | 'cancelled',
-          orderType: 'dine-in' as const,
+          orderType: (order.order_type as 'dine-in' | 'takeaway' | 'delivery') || 'dine-in',
+          customerName: order.customer_name || undefined,
+          customerPhone: order.customer_phone || undefined,
+          tableNumber: order.table_number || undefined,
         }));
         setOrders(orders);
         offlineCache.saveToCache('orders', orders, user.id);
@@ -380,6 +383,10 @@ export function useNeonSync() {
         total: order.total,
         payment_method: 'cash',
         status: order.status,
+        customer_name: order.customerName || null,
+        customer_phone: order.customerPhone || null,
+        order_type: order.orderType || null,
+        table_number: order.tableNumber || null,
       });
       return true;
     } catch (error) {
