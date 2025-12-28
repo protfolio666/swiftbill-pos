@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode, useRef } from 'react';
+import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { resetPOSStore } from '@/stores/posStore';
@@ -29,9 +29,16 @@ interface AuthContextType {
   hasActiveSubscription: boolean;
   isTrialActive: boolean;
   trialDaysRemaining: number;
+  /** True once we have finished checking the user’s subscription status for the current session */
+  isSubscriptionLoaded: boolean;
   isLoading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
-  signUp: (email: string, password: string, restaurantName: string, ownerName: string) => Promise<{ error: Error | null }>;
+  signUp: (
+    email: string,
+    password: string,
+    restaurantName: string,
+    ownerName: string
+  ) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   refreshSubscription: () => Promise<void>;
@@ -47,6 +54,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
   const [isTrialActive, setIsTrialActive] = useState(false);
   const [trialDaysRemaining, setTrialDaysRemaining] = useState(0);
+  const [isSubscriptionLoaded, setIsSubscriptionLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchProfile = async (userId: string) => {
@@ -62,19 +70,33 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const fetchSubscription = async (userId: string) => {
+    setIsSubscriptionLoaded(false);
     try {
       const response = await supabase.functions.invoke('razorpay', {
         body: { action: 'check-subscription', data: { userId } }
       });
-      
+
       if (response.data?.success) {
-        setHasActiveSubscription(response.data.hasActiveSubscription);
+        setHasActiveSubscription(!!response.data.hasActiveSubscription);
         setSubscription(response.data.subscription || null);
         setIsTrialActive(response.data.isTrialActive || false);
         setTrialDaysRemaining(response.data.trialDaysRemaining || 0);
+      } else {
+        // If backend didn’t return success, treat as no subscription but mark as checked.
+        setHasActiveSubscription(false);
+        setSubscription(null);
+        setIsTrialActive(false);
+        setTrialDaysRemaining(0);
       }
     } catch (error) {
+      // Don’t block UI on errors; just mark subscription as checked.
       console.error('Error fetching subscription:', error);
+      setHasActiveSubscription(false);
+      setSubscription(null);
+      setIsTrialActive(false);
+      setTrialDaysRemaining(0);
+    } finally {
+      setIsSubscriptionLoaded(true);
     }
   };
 
@@ -117,6 +139,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         // Defer profile and subscription fetch with setTimeout
         if (session?.user) {
+          // For a new session, mark subscription as not-yet-loaded until fetch completes
+          setIsSubscriptionLoaded(false);
           setTimeout(() => {
             fetchProfile(session.user.id);
             fetchSubscription(session.user.id);
@@ -125,6 +149,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setProfile(null);
           setSubscription(null);
           setHasActiveSubscription(false);
+          setIsTrialActive(false);
+          setTrialDaysRemaining(0);
+          setIsSubscriptionLoaded(true);
         }
 
         // Only end loading AFTER initial session check has completed
@@ -142,12 +169,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setUser(session?.user ?? null);
 
       if (session?.user) {
+        setIsSubscriptionLoaded(false);
         fetchProfile(session.user.id);
         fetchSubscription(session.user.id);
       } else {
         setProfile(null);
         setSubscription(null);
         setHasActiveSubscription(false);
+        setIsTrialActive(false);
+        setTrialDaysRemaining(0);
+        setIsSubscriptionLoaded(true);
       }
 
       setIsLoading(false);
@@ -194,6 +225,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setHasActiveSubscription(false);
     setIsTrialActive(false);
     setTrialDaysRemaining(0);
+    setIsSubscriptionLoaded(true);
     // Reset POS store to clear user-specific data
     resetPOSStore();
   };
@@ -207,6 +239,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       hasActiveSubscription,
       isTrialActive,
       trialDaysRemaining,
+      isSubscriptionLoaded,
       isLoading,
       signIn,
       signUp,
