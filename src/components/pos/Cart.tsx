@@ -561,8 +561,8 @@ export function Cart() {
         )}
       </div>
 
-      {/* Cart Summary - fixed at bottom */}
-      <div className="border-t border-border px-3 py-2 pb-4 space-y-2 bg-card shrink-0 max-h-[60vh] overflow-y-auto">
+      {/* Cart Summary - fixed at bottom with safe padding */}
+      <div className="border-t border-border px-3 py-2 pb-safe space-y-2 bg-card shrink-0 overflow-y-auto" style={{ maxHeight: 'calc(55vh - env(safe-area-inset-bottom, 0px))' }}>
         {cart.length > 0 ? (
           <>
             {/* Order Type Selection */}

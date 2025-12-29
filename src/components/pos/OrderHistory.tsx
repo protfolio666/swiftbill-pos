@@ -665,8 +665,8 @@ export function OrderHistory() {
         </Card>
       </div>
 
-      {/* Export Section */}
-      <Card className="border-0 pos-shadow mb-6">
+      {/* Export Section - Hidden on mobile, shown in collapsible */}
+      <Card className="border-0 pos-shadow mb-4 md:mb-6 hidden md:block">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg flex items-center gap-2">
             <Download className="w-5 h-5" />
@@ -757,24 +757,41 @@ export function OrderHistory() {
         </CardContent>
       </Card>
 
+      {/* Mobile Export Button */}
+      <div className="md:hidden mb-4">
+        <Button 
+          type="button" 
+          onClick={exportToCSV} 
+          variant="outline"
+          className="w-full gap-2"
+        >
+          <Download className="w-4 h-4" />
+          Export All Orders to CSV
+        </Button>
+      </div>
+
       {/* Orders Section */}
       <Card className="border-0 pos-shadow overflow-hidden mb-6">
-        <CardHeader className="border-b border-border bg-card">
+        <CardHeader className="border-b border-border bg-card p-3 md:p-6">
           <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Receipt className="w-5 h-5" />
+            {/* Title and Filter */}
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
+              <CardTitle className="text-base md:text-lg flex items-center gap-2">
+                <Receipt className="w-4 h-4 md:w-5 md:h-5" />
                 Orders ({filteredOrders.length})
               </CardTitle>
               {/* Filter Buttons */}
-              <div className="flex gap-2">
+              <div className="flex gap-1.5 md:gap-2">
                 {(['all', 'today', 'week'] as const).map((f) => (
                   <Button
                     key={f}
                     variant={filter === f ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setFilter(f)}
-                    className={filter === f ? 'pos-gradient' : ''}
+                    className={cn(
+                      "h-8 px-3 text-xs md:text-sm",
+                      filter === f ? 'pos-gradient' : ''
+                    )}
                   >
                     {f === 'all' ? 'All' : f === 'today' ? 'Today' : 'Week'}
                   </Button>
@@ -785,10 +802,10 @@ export function OrderHistory() {
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search by customer name, phone, or order ID..."
+                placeholder="Search orders..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 pr-9"
+                className="pl-9 pr-9 h-9 text-sm"
               />
               {searchQuery && (
                 <button
@@ -801,7 +818,7 @@ export function OrderHistory() {
             </div>
           </div>
         </CardHeader>
-        <ScrollArea className="h-[350px]">
+        <ScrollArea className="h-[400px] md:h-[350px]">
           <CardContent className="p-0">
             {filteredOrders.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
@@ -814,78 +831,90 @@ export function OrderHistory() {
                   const isExpanded = expandedOrders.has(order.id);
                   const orderDate = new Date(order.date);
                   
-                  return (
-                    <div key={order.id} className="bg-card hover:bg-accent/50 transition-colors">
-                      <div className="w-full p-4 flex items-center justify-between">
-                        <button
-                          onClick={() => toggleExpanded(order.id)}
-                          className="flex items-center gap-4 text-left flex-1"
-                        >
-                          <div className="w-10 h-10 rounded-lg pos-gradient flex items-center justify-center">
-                            <DollarSign className="w-5 h-5 text-primary-foreground" />
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium text-foreground">{order.id}</p>
-                              <span className={`text-xs px-2 py-0.5 rounded ${order.orderType === 'dine-in' ? 'bg-primary/20 text-primary' : 'bg-orange-500/20 text-orange-600'}`}>
-                                {order.orderType === 'dine-in' ? 'Dine-in' : 'Takeaway'}
-                              </span>
-                              {order.orderType === 'dine-in' && order.tableNumber && (
-                                <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground">
-                                  Table {order.tableNumber}
-                                </span>
+                    return (
+                      <div key={order.id} className="bg-card hover:bg-accent/50 transition-colors">
+                        {/* Mobile-optimized order card */}
+                        <div className="w-full p-3 md:p-4">
+                          {/* Main row - clickable for expand */}
+                          <button
+                            onClick={() => toggleExpanded(order.id)}
+                            className="w-full text-left"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              {/* Left side - Icon and info */}
+                              <div className="flex items-start gap-2 md:gap-4 flex-1 min-w-0">
+                                <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg pos-gradient flex items-center justify-center shrink-0">
+                                  <DollarSign className="w-4 h-4 md:w-5 md:h-5 text-primary-foreground" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex flex-wrap items-center gap-1 md:gap-2">
+                                    <p className="font-medium text-foreground text-sm md:text-base">{order.id}</p>
+                                    <span className={`text-[10px] md:text-xs px-1.5 md:px-2 py-0.5 rounded ${order.orderType === 'dine-in' ? 'bg-primary/20 text-primary' : 'bg-orange-500/20 text-orange-600'}`}>
+                                      {order.orderType === 'dine-in' ? 'Dine' : 'Take'}
+                                    </span>
+                                    {order.orderType === 'dine-in' && order.tableNumber && (
+                                      <span className="text-[10px] md:text-xs px-1.5 md:px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                                        T{order.tableNumber}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-xs md:text-sm text-muted-foreground mt-0.5">
+                                    {format(orderDate, 'MMM dd')} • {format(orderDate, 'hh:mm a')}
+                                  </p>
+                                </div>
+                              </div>
+                              
+                              {/* Right side - Total and expand icon */}
+                              <div className="flex items-center gap-2 shrink-0">
+                                <div className="text-right">
+                                  <p className="font-bold text-foreground text-sm md:text-base">
+                                    {brand.currency}{order.total.toFixed(0)}
+                                  </p>
+                                  <p className="text-[10px] md:text-xs text-muted-foreground">
+                                    {order.items.length} items
+                                  </p>
+                                </div>
+                                {isExpanded ? (
+                                  <ChevronUp className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
+                                ) : (
+                                  <ChevronDown className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
+                                )}
+                              </div>
+                            </div>
+                          </button>
+                          
+                          {/* Action buttons - visible on tap/hover */}
+                          {isExpanded && (
+                            <div className="flex gap-2 mt-3 pt-3 border-t border-border">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => printReceipt(order)}
+                                className="flex-1 gap-1.5 h-9"
+                              >
+                                <Printer className="w-4 h-4" />
+                                Print
+                              </Button>
+
+                              {order.customerPhone && (
+                                <a
+                                  href={getWhatsAppUrl(order)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex-1 inline-flex items-center justify-center gap-1.5 h-9 text-sm font-medium rounded-md border text-green-600 hover:text-green-700 hover:bg-green-50 border-green-200 transition-colors"
+                                >
+                                  <MessageCircle className="w-4 h-4" />
+                                  WhatsApp
+                                </a>
                               )}
                             </div>
-                            <p className="text-sm text-muted-foreground">
-                              {format(orderDate, 'MMM dd, yyyy')} at {format(orderDate, 'hh:mm a')}
-                            </p>
-                          </div>
-                        </button>
-                        <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            <p className="font-bold text-foreground">
-                              {brand.currency}{order.total.toFixed(2)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {order.items.length} items
-                            </p>
-                          </div>
-
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => printReceipt(order)}
-                            className="gap-1"
-                          >
-                            <Printer className="w-4 h-4" />
-                            <span className="hidden sm:inline">Print</span>
-                          </Button>
-
-                          {order.customerPhone && (
-                            <a
-                              href={getWhatsAppUrl(order)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="inline-flex items-center justify-center gap-1 h-8 px-3 text-sm font-medium rounded-md border text-green-600 hover:text-green-700 hover:bg-green-50 border-green-200 transition-colors"
-                            >
-                              <MessageCircle className="w-4 h-4" />
-                              <span className="hidden sm:inline">WhatsApp</span>
-                            </a>
                           )}
-
-                          <button onClick={() => toggleExpanded(order.id)}>
-                            {isExpanded ? (
-                              <ChevronUp className="w-5 h-5 text-muted-foreground" />
-                            ) : (
-                              <ChevronDown className="w-5 h-5 text-muted-foreground" />
-                            )}
-                          </button>
                         </div>
-                      </div>
-                      
-                      {isExpanded && (
-                        <div className="px-4 pb-4 pt-0 animate-fade-in">
-                          <div className="bg-muted/50 rounded-lg p-3 space-y-2">
+                        
+                        {/* Expanded details section */}
+                        {isExpanded && (
+                          <div className="px-3 md:px-4 pb-3 md:pb-4 pt-0 animate-fade-in">
+                            <div className="bg-muted/50 rounded-lg p-3 space-y-2 text-sm">
                             {/* Customer Details */}
                             {(order.customerName || order.customerPhone) && (
                               <div className="border-b border-border pb-2 mb-2">
