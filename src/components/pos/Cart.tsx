@@ -21,15 +21,14 @@ const generateUpiLink = (upiId: string, name: string, amount: number, orderId: s
 
 export function Cart() {
   const { 
-    cart, brand, discount, discountType, orderType, tableNumber, customerName, customerPhone,
+    cart, brand, discount, discountType, orderType, tableNumber, customerName, customerPhone, lastOrder,
     updateCartQuantity, removeFromCart, clearCart, createOrder, 
-    setDiscount, setOrderType, setTableNumber, setCustomerName, setCustomerPhone 
+    setDiscount, setOrderType, setTableNumber, setCustomerName, setCustomerPhone, setLastOrder
   } = usePOSStore();
   const { saveOrder } = useNeon();
   const { isKOTEnabled, createKOTOrder } = useKOT();
   const [discountInput, setDiscountInput] = useState(discount.toString());
   const [localDiscountType, setLocalDiscountType] = useState<'percentage' | 'fixed'>(discountType);
-  const [lastOrder, setLastOrder] = useState<Order | null>(null);
 
   const subtotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const discountAmount = localDiscountType === 'percentage' 
@@ -98,6 +97,9 @@ export function Cart() {
         console.error('Failed to generate QR code:', err);
       }
     }
+
+    // Check if on mobile/Android - use different print approach
+    const isMobile = thermalPrinter.isMobile();
 
     const receiptContent = `
       <!DOCTYPE html>
@@ -362,7 +364,33 @@ export function Cart() {
       </html>
     `;
 
-    // Create a hidden iframe for printing
+    // For mobile: open in new tab with auto-print
+    if (isMobile) {
+      const blob = new Blob([receiptContent], { type: 'text/html' });
+      const blobUrl = URL.createObjectURL(blob);
+      const printTab = window.open(blobUrl, '_blank');
+      
+      if (printTab) {
+        toast.success('Receipt opened! Tap print or share.');
+        printTab.onload = () => {
+          // On mobile, the user can print from browser menu or share
+          setTimeout(() => {
+            try {
+              printTab.print();
+            } catch (e) {
+              // Print might not be available on all mobile browsers
+              console.log('Auto-print not available, user can print from menu');
+            }
+          }, 1000);
+        };
+      } else {
+        toast.error('Unable to open receipt. Please check popup settings.');
+        URL.revokeObjectURL(blobUrl);
+      }
+      return;
+    }
+
+    // Desktop: Create a hidden iframe for printing
     const printFrame = document.createElement('iframe');
     printFrame.style.position = 'fixed';
     printFrame.style.right = '0';

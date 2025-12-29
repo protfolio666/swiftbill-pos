@@ -139,6 +139,21 @@ class ThermalPrinterService {
     return CHAR_WIDTH[this.config.paperWidth];
   }
 
+  // Check if device is Android
+  isAndroid(): boolean {
+    return /Android/i.test(navigator.userAgent);
+  }
+
+  // Check if device is iOS
+  isIOS(): boolean {
+    return /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  }
+
+  // Check if device is mobile
+  isMobile(): boolean {
+    return this.isAndroid() || this.isIOS() || /Mobile/i.test(navigator.userAgent);
+  }
+
   // Check if Web Serial API is supported
   isSerialSupported(): boolean {
     try {
@@ -155,6 +170,11 @@ class ThermalPrinterService {
     } catch {
       return false;
     }
+  }
+
+  // Check if Web Share API is supported (for Android)
+  isShareSupported(): boolean {
+    return typeof navigator.share === 'function';
   }
 
   // Connect via USB (Web Serial API)

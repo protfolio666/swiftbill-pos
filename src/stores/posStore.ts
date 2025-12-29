@@ -44,7 +44,9 @@ interface POSState {
 
   // Orders
   orders: Order[];
+  lastOrder: Order | null;
   setOrders: (orders: Order[]) => void;
+  setLastOrder: (order: Order | null) => void;
   createOrder: () => Order | null;
 }
 
@@ -144,7 +146,9 @@ export const usePOSStore = create<POSState>()(
       setCustomerPhone: (phone) => set({ customerPhone: phone }),
 
       orders: [], // Start empty - data comes from Neon per user
+      lastOrder: null,
       setOrders: (orders) => set({ orders }),
+      setLastOrder: (order) => set({ lastOrder: order }),
       createOrder: () => {
         const state = get();
         if (state.cart.length === 0) return null;
@@ -202,7 +206,8 @@ export const usePOSStore = create<POSState>()(
         });
 
         set((s) => ({ 
-          orders: [order, ...s.orders], 
+          orders: [order, ...s.orders],
+          lastOrder: order,
           cart: [], 
           discount: 0, 
           discountType: 'percentage',
@@ -234,5 +239,6 @@ export const resetPOSStore = () => {
     customerName: '',
     customerPhone: '',
     orders: [],
+    lastOrder: null,
   });
 };
