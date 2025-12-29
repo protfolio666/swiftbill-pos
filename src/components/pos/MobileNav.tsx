@@ -1,8 +1,8 @@
 import { ShoppingCart, UtensilsCrossed, Package, Settings, History, ChefHat, ClipboardList, LogOut, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { StaffRole } from '@/types/kot';
-import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,10 +25,8 @@ interface MobileNavProps {
 }
 
 export function MobileNav({ activeTab, onTabChange, role, isKOTEnabled, permissions }: MobileNavProps) {
-  const { signOut } = useAuth();
-
   const handleLogout = async () => {
-    await signOut();
+    await supabase.auth.signOut();
     toast.success('Logged out successfully');
   };
 
