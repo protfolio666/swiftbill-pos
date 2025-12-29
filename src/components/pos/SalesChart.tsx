@@ -68,29 +68,29 @@ export function SalesChart() {
 
   return (
     <Card className="border-0 pos-shadow">
-      <CardHeader className="pb-2">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <BarChart3 className="w-5 h-5" />
-          Revenue Trends (Last 7 Days)
+      <CardHeader className="pb-2 p-3 md:p-6 md:pb-2">
+        <CardTitle className="text-base md:text-lg flex items-center gap-2">
+          <BarChart3 className="w-4 h-4 md:w-5 md:h-5" />
+          Revenue (7 Days)
         </CardTitle>
-        <div className="flex gap-4 mt-2 text-sm">
-          <div className="flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-primary" />
+        <div className="flex flex-wrap gap-2 md:gap-4 mt-2 text-xs md:text-sm">
+          <div className="flex items-center gap-1.5 md:gap-2">
+            <TrendingUp className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary" />
             <span className="text-muted-foreground">Total:</span>
             <span className="font-semibold text-foreground">
-              {brand.currency}{totalRevenue.toFixed(2)}
+              {brand.currency}{totalRevenue.toFixed(0)}
             </span>
           </div>
           <div className="text-muted-foreground">
-            Avg Order: <span className="font-semibold text-foreground">{brand.currency}{avgOrderValue.toFixed(2)}</span>
+            Avg: <span className="font-semibold text-foreground">{brand.currency}{avgOrderValue.toFixed(0)}</span>
           </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-3 md:p-6 pt-0 md:pt-0">
         <Tabs defaultValue="area" className="w-full">
-          <TabsList className="mb-4">
-            <TabsTrigger value="area">Area</TabsTrigger>
-            <TabsTrigger value="bar">Bar</TabsTrigger>
+          <TabsList className="mb-4 h-8">
+            <TabsTrigger value="area" className="text-xs md:text-sm h-7">Area</TabsTrigger>
+            <TabsTrigger value="bar" className="text-xs md:text-sm h-7">Bar</TabsTrigger>
           </TabsList>
           
           <TabsContent value="area" className="h-[200px]">
